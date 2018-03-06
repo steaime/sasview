@@ -585,6 +585,7 @@ class EditorPanel(wx.ScrolledWindow):
         self.param_tcl = None
         self.function_sizer = None
         self.func_horizon_sizer = None
+        self.volume_sizer = None
         self.button_sizer = None
         self.param_strings = ''
         self.function_strings = ''
@@ -596,6 +597,7 @@ class EditorPanel(wx.ScrolledWindow):
         #    -- PDB 2/26/17
         #self._description = "New Plugin Model"
         self.function_tcl = None
+        self.volume_tcl = None
         self.math_combo = None
         self.bt_apply = None
         self.bt_close = None
@@ -616,6 +618,7 @@ class EditorPanel(wx.ScrolledWindow):
         self.param_sizer = wx.BoxSizer(wx.VERTICAL)
         self.function_sizer = wx.BoxSizer(wx.VERTICAL)
         self.func_horizon_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.volume_sizer = wx.BoxSizer(wx.VERTICAL)
         self.button_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.msg_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -659,14 +662,13 @@ class EditorPanel(wx.ScrolledWindow):
         """
         Do the layout for parameter related widgets
         """
-        param_txt = wx.StaticText(self, -1, 'Fit Parameters NOT requiring' + \
-                                  ' polydispersity (if any): ')
+        param_txt = wx.StaticText(self, -1, 'Non volume parameters (no polydisperse): ')
 
-        param_tip = "#Set the parameters NOT requiring polydispersity " + \
-        "and their initial values.\n"
-        param_tip += "#Example:\n"
-        param_tip += "A = 1\nB = 1"
-        #param_txt.SetToolTipString(param_tip)
+        param_tip =  "# Set the parameters that do NOT enter \n"
+        param_tip += " in the volume calculation and their initial values.\n"
+        param_tip += "# Example:\n"
+        param_tip += "sld_sphere = 1\n"
+        param_tip += "sld_solvent = 6"
         newid = wx.NewId()
         self.param_tcl = EditWindow(self, newid, wx.DefaultPosition,
                                     wx.DefaultSize,
@@ -678,13 +680,13 @@ class EditorPanel(wx.ScrolledWindow):
                                   (self.param_tcl, 1, wx.EXPAND | wx.ALL, 10)])
 
         # Parameters with polydispersity
-        pd_param_txt = wx.StaticText(self, -1, 'Fit Parameters requiring ' + \
-                                     'polydispersity (if any): ')
+        pd_param_txt = wx.StaticText(self, -1, 'Volume parameters ' + \
+                                     ' (can be polydisperse): ')
 
-        pd_param_tip = "#Set the parameters requiring polydispersity and " + \
+        pd_param_tip = "# Set the volume parameters and " + \
         "their initial values.\n"
-        pd_param_tip += "#Example:\n"
-        pd_param_tip += "C = 2\nD = 2"
+        pd_param_tip += "# Example:\n"
+        pd_param_tip += "R_sphere = 100"
         newid = wx.NewId()
         self.pd_param_tcl = EditWindow(self, newid, wx.DefaultPosition,
                                     wx.DefaultSize,
@@ -700,12 +702,20 @@ class EditorPanel(wx.ScrolledWindow):
         Do the layout for function related widgets
         """
         function_txt = wx.StaticText(self, -1, 'Function(x) : ')
-        hint_function = "#Example:\n"
-        hint_function += "if x <= 0:\n"
-        hint_function += "    y = A + B\n"
-        hint_function += "else:\n"
-        hint_function += "    y = A + B * cos(2 * pi * x)\n"
-        hint_function += "return y\n"
+        hint_function =  "# Write the function describing the form factor. \n"
+        hint_function += "# Mathematical functions can be selected from the list. \n"
+        hint_function += "# Other numpy functions can also be used by writing e.g. \n"
+        hint_function += "# numpy.sinh(x) or np.sinh(x). \n"
+        hint_function += "# Example: \n"
+        hint_function += "V = (4./3.)*pi*R_sphere**3 \n"
+        hint_function += "qr = x*R_sphere \n"
+        hint_function += "sn, cn = sin(qr), cos(qr) \n"
+        hint_function += "if qr > 0: \n"
+        hint_function += "   bes = 3*(sn-qr*cn)/qr**3 \n"
+        hint_function += "else: \n"
+        hint_function += "   bes = 1.0 \n"
+        hint_function += "fq = bes * (sld_sphere-sld_solvent)*V \n"
+        hint_function += "return 1.0e-4 * fq**2 \n"
         math_txt = wx.StaticText(self, -1, '*Useful math functions: ')
         math_combo = self._fill_math_combo()
 
@@ -722,6 +732,27 @@ class EditorPanel(wx.ScrolledWindow):
 
         self.function_sizer.Add(self.func_horizon_sizer, 0, wx.LEFT, 10)
         self.function_sizer.Add(self.function_tcl, 1, wx.EXPAND | wx.ALL, 10)
+
+    def _layout_volume(self):
+        """
+        Do the layout for the form_volume widget
+        """
+        volume_txt = wx.StaticText(self, -1, 'Function defining the volume of the particle' + \
+                                  ' (if left empty, V = 1.0): ')
+
+        volume_tip = "# Example: \n"
+        volume_tip += " V = (4./3.)*pi*R_sphere**3 \n"
+        volume_tip += "return V \n"
+        newid = wx.NewId()
+        self.volume_tcl = EditWindow(self, newid, wx.DefaultPosition,
+                                    wx.DefaultSize,
+                                    wx.CLIP_CHILDREN | wx.SUNKEN_BORDER)
+        self.volume_tcl.setDisplayLineNumbers(True)
+        self.volume_tcl.SetToolTipString(volume_tip)
+
+        self.volume_sizer.AddMany([(volume_txt, 0, wx.LEFT, 10),
+                                  (self.volume_tcl, 1, wx.EXPAND | wx.ALL, 10)])
+
 
     def _layout_msg(self):
         """
@@ -760,6 +791,7 @@ class EditorPanel(wx.ScrolledWindow):
         self._layout_description()
         self._layout_param()
         self._layout_function()
+        self._layout_volume()
         self._layout_msg()
         self._layout_button()
         self.main_sizer.AddMany([(self.name_sizer, 0, wx.EXPAND | wx.ALL, 5),
@@ -771,8 +803,11 @@ class EditorPanel(wx.ScrolledWindow):
                                  (self.param_sizer, 1, wx.EXPAND | wx.ALL, 5),
                                  (wx.StaticLine(self), 0,
                                   wx.ALL | wx.EXPAND, 5),
-                                 (self.function_sizer, 2,
+                                 (self.function_sizer, 1,
                                   wx.EXPAND | wx.ALL, 5),
+                                 (wx.StaticLine(self), 0,
+                                  wx.ALL | wx.EXPAND, 5),
+                                 (self.volume_sizer, 1, wx.EXPAND | wx.ALL, 5),
                                  (wx.StaticLine(self), 0,
                                   wx.ALL | wx.EXPAND, 5),
                                  (self.msg_sizer, 0, wx.EXPAND | wx.ALL, 5),
@@ -897,11 +932,12 @@ class EditorPanel(wx.ScrolledWindow):
             param_str = self.param_tcl.GetText()
             pd_param_str = self.pd_param_tcl.GetText()
             func_str = self.function_tcl.GetText()
+            volume_str = self.volume_tcl.GetText()
             # No input for the model function
             if func_str.lstrip().rstrip():
                 if func_str.count('return') > 0:
                     self.write_file(self.fname, name, description, param_str,
-                                    pd_param_str, func_str)
+                                    pd_param_str, func_str, volume_str)
                     try:
                         result, msg = check_model(self.fname), None
                     except Exception:
@@ -941,7 +977,7 @@ class EditorPanel(wx.ScrolledWindow):
                          StatusEvent(status=msg+check_err, info=info))
         self.warning = msg
 
-    def write_file(self, fname, name, desc_str, param_str, pd_param_str, func_str):
+    def write_file(self, fname, name, desc_str, param_str, pd_param_str, func_str, volume_str):
         """
         Write content in file
 
@@ -977,23 +1013,41 @@ class EditorPanel(wx.ScrolledWindow):
         out_f.write('    ]\n')
 
         # Write out function definition
+        out_f.write('\n')
         out_f.write('def Iq(%s):\n' % ', '.join(['x'] + param_names))
         out_f.write('    """Absolute scattering"""\n')
-        if "scipy." in func_str:
-            out_f.write('    import scipy')
         if "numpy." in func_str:
-            out_f.write('    import numpy')
-        if "np." in func_str:
-            out_f.write('    import numpy as np')
+            out_f.write('    import numpy\n')
+        elif "np." in func_str:
+            out_f.write('    import numpy as np\n')
         for func_line in func_str.split('\n'):
-            out_f.write('%s%s\n' % (spaces4, func_line))
+            out_f.write('%s%s' % ('    ', func_line))
+        out_f.write('\n')    
         out_f.write('## uncomment the following if Iq works for vector x\n')
-        out_f.write('#Iq.vectorized = True\n')
+        out_f.write('#    Iq.vectorized = True\n')
+        
+        # Write out form_volume
+        out_f.write('\n')
+        out_f.write('def form_volume(%s):\n' % ', '.join(pd_params))
+        out_f.write('    """ \n')
+        out_f.write('    Volume of the particles used to compute absolute scattering intensity \n')
+        out_f.write('    and to weight polydisperse parameter contributions. \n')
+        out_f.write('    """\n')
+        if volume_str.lstrip().rstrip() and volume_str.count('return'):
+            if "numpy." in volume_str:
+                out_f.write('    import numpy\n')
+            elif "np." in volume_str:
+                out_f.write('    import numpy as np\n')
+            for vol_line in volume_str.split('\n'):
+                out_f.write('%s%s' % ('    ', vol_line))
+        else:
+            out_f.write('    return 1.0 \n')
+        out_f.write('\n')
 
-        # If polydisperse, create place holders for form_volume, ER and VR
-        if pd_params:
-            out_f.write('\n')
-            out_f.write(CUSTOM_TEMPLATE_PD % {'args': ', '.join(pd_params)})
+        # If polydisperse, create place holders also for ER and VR
+        #if pd_params:
+        #    out_f.write('\n')
+        #    out_f.write(CUSTOM_TEMPLATE_PD % {'args': ', '.join(pd_params)})
 
         # Create place holder for Iqxy
         out_f.write('\n')
@@ -1002,7 +1056,7 @@ class EditorPanel(wx.ScrolledWindow):
         out_f.write('#    ...\n')
         out_f.write('#    return oriented_form(x, y, args)\n')
         out_f.write('## uncomment the following if Iqxy works for vector x, y\n')
-        out_f.write('#Iqxy.vectorized = True\n')
+        out_f.write('#I    qxy.vectorized = True\n')
 
         out_f.close()
 
@@ -1127,20 +1181,13 @@ description = """%(description)s"""
 '''
 
 CUSTOM_TEMPLATE_PD = '''\
-def form_volume(%(args)s):
-    """
-    Volume of the particles used to compute absolute scattering intensity
-    and to weight polydisperse parameter contributions.
-    """
-    return 0.0
-
 def ER(%(args)s):
     """
     Effective radius of particles to be used when computing structure factors.
 
     Input parameters are vectors ranging over the mesh of polydispersity values.
     """
-    return 0.0
+    return 1.0
 
 def VR(%(args)s):
     """
