@@ -4,6 +4,9 @@ from PyQt5 import QtWidgets
 
 import sas.qtgui.Utilities.GuiUtils as GuiUtils
 
+import logging
+logger = logging.getLogger(__name__)
+
 class ModelViewDelegate(QtWidgets.QStyledItemDelegate):
     """
     Custom delegate for appearance and behavior control of the model view
@@ -101,7 +104,6 @@ class ModelViewDelegate(QtWidgets.QStyledItemDelegate):
                 # balloon popup? tooltip? cell background colour flash?
                 return
         QtWidgets.QStyledItemDelegate.setModelData(self, editor, model, index)
-
 
 class PolyViewDelegate(QtWidgets.QStyledItemDelegate):
     """
@@ -279,3 +281,60 @@ class MagnetismViewDelegate(QtWidgets.QStyledItemDelegate):
         else:
             # Just the default paint
             QtWidgets.QStyledItemDelegate.paint(self, painter, option, index)
+
+class StructureViewDelegate(QtWidgets.QStyledItemDelegate):
+    """
+    Custom delegate for appearance and behaviour control of the structure
+    factor options view
+    """
+    def __init__(self, parent=None):
+        """
+        Override parent constructor
+        """
+
+        super(StructureViewDelegate, self).__init__()
+
+        self.fittingWidget = parent
+
+    def paint(self, painter, option, index):
+        """
+        Override generic painter
+        """
+        # TODO override this with something useful ... ?
+        super(StructureViewDelegate, self).paint(
+            painter, option, index
+        )
+
+    def createEditor(self, parent, option, index):
+        """
+        Override generic createEditor -- certain elements have
+        combo boxes
+        """
+
+        model = self.fittingWidget.structureView.model()
+
+        if not index.parent():
+            # we only care about child items since we don't edit top-level
+            # items in this view anyway
+            return super(QtWidgets.QStyledItemDelegate, self).createEditor(
+                parent, option, index
+            )
+
+        # navigate to the parameter name through the parent item (it'll be
+        # on the same row, but col. 0)
+        parent_item = model.itemFromIndex(index.parent())
+        param_item = parent_item.child(index.row(), 0)
+
+        #item = model.itemFromIndex(index)
+        #print("item (row) [param]: \"{}\" ({}) [{}]".format(
+        #    item.text(), index.row(), param_item.text())
+        #)
+
+        if param_item.text() in ["effective radius", "volume fraction"]:
+            # we want a combo box for these
+            return QtWidgets.QComboBox(parent)
+
+        # return default otherwise
+        return super(StructureViewDelegate, self).createEditor(
+            parent, option, index
+        )

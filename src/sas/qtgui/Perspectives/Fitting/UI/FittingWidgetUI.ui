@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>680</width>
+    <width>487</width>
     <height>605</height>
    </rect>
   </property>
@@ -348,6 +348,28 @@
       <attribute name="title">
        <string>Resolution</string>
       </attribute>
+     </widget>
+     <widget class="QWidget" name="tabStructure">
+      <attribute name="title">
+       <string>S(Q) Options</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_7">
+       <property name="leftMargin">
+        <number>15</number>
+       </property>
+       <property name="topMargin">
+        <number>15</number>
+       </property>
+       <property name="rightMargin">
+        <number>15</number>
+       </property>
+       <property name="bottomMargin">
+        <number>15</number>
+       </property>
+       <item row="0" column="0">
+        <widget class="QTreeView" name="lstStructureOptions"/>
+       </item>
+      </layout>
      </widget>
      <widget class="QWidget" name="tab_4">
       <attribute name="title">

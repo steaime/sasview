@@ -44,14 +44,16 @@ from sas.qtgui.Perspectives.Fitting.FitPage import FitPage
 from sas.qtgui.Perspectives.Fitting.ViewDelegate import ModelViewDelegate
 from sas.qtgui.Perspectives.Fitting.ViewDelegate import PolyViewDelegate
 from sas.qtgui.Perspectives.Fitting.ViewDelegate import MagnetismViewDelegate
+from sas.qtgui.Perspectives.Fitting.ViewDelegate import StructureViewDelegate
 from sas.qtgui.Perspectives.Fitting.Constraint import Constraint
 from sas.qtgui.Perspectives.Fitting.MultiConstraint import MultiConstraint
 from sas.qtgui.Perspectives.Fitting.ReportPageLogic import ReportPageLogic
 
 
+TAB_STRUCTURE = 3
+TAB_POLY = 4
+TAB_MAGNETISM = 5
 
-TAB_MAGNETISM = 4
-TAB_POLY = 3
 CATEGORY_DEFAULT = "Choose category..."
 CATEGORY_STRUCTURE = "Structure Factor"
 CATEGORY_CUSTOM = "Plugin Models"
@@ -195,6 +197,10 @@ class FittingWidget(QtWidgets.QWidget, Ui_FittingWidgetUI):
         # Enable/disable UI components
         self.setEnablementOnDataLoad()
 
+    @property
+    def structureView(self):
+        return self.lstStructureOptions
+
     def initializeGlobals(self):
         """
         Initialize global variables used in this class
@@ -306,6 +312,7 @@ class FittingWidget(QtWidgets.QWidget, Ui_FittingWidgetUI):
         self._model_model = ToolTippedItemModel()
         self._poly_model = ToolTippedItemModel()
         self._magnet_model = ToolTippedItemModel()
+        self._structure_model = ToolTippedItemModel()
 
         # Param model displayed in param list
         self.lstParams.setModel(self._model_model)
@@ -360,6 +367,54 @@ class FittingWidget(QtWidgets.QWidget, Ui_FittingWidgetUI):
         self.setTableProperties(self.lstMagnetic)
         # Delegates for custom editing and display
         self.lstMagnetic.setItemDelegate(MagnetismViewDelegate(self))
+
+        # Structure factor options model (TEMPORARY EXAMPLE)
+
+        header_list = ["Property", "Value"]
+        num_cols = len(header_list)
+        self._structure_model.setHorizontalHeaderLabels(header_list)
+
+        self.structure_params = [
+            "mixture",
+            "effective radius",
+            "volume fraction"
+        ]
+
+        # these are just an example
+        param_vals = [
+            "P(Q)S(Q)",
+            "ER_mean_curvature",
+            "VR_something_or_other"
+        ]
+
+        num_SoQs = 3
+        for i in range(num_SoQs):
+            item_toplevel = QtGui.QStandardItem()
+            item_toplevel.setEditable(False)
+            item_toplevel.setText("S{}(Q)".format(i+1))
+
+            for param, val in zip(self.structure_params, param_vals):
+                item1 = QtGui.QStandardItem()
+                item1.setEditable(False)
+                item1.setText(param)
+
+                item2 = QtGui.QStandardItem()
+                item2.setText(val)
+
+                item_toplevel.appendRow([item1, item2])
+
+            row_toplevel = [item_toplevel]
+            for i in range(num_cols - 1):
+                item = QtGui.QStandardItem()
+                item.setEditable(False)
+                row_toplevel.append(item)
+
+            self._structure_model.appendRow(row_toplevel)
+
+        self.lstStructureOptions.setModel(self._structure_model)
+        self.lstStructureOptions.setItemDelegate(StructureViewDelegate(self))
+        self.lstStructureOptions.setAlternatingRowColors(True)
+        self.lstStructureOptions.setStyleSheet(stylesheet)
 
     def initializeCategoryCombo(self):
         """
