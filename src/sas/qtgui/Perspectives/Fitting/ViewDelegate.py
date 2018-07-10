@@ -307,34 +307,62 @@ class StructureViewDelegate(QtWidgets.QStyledItemDelegate):
 
     def createEditor(self, parent, option, index):
         """
-        Override generic createEditor -- certain elements have
-        combo boxes
+        Override generic createEditor -- certain elements have combo boxes
         """
+        print("gotta create me an editor")
 
         model = self.fittingWidget.structureView.model()
 
-        if not index.parent():
+        if index.parent():
             # we only care about child items since we don't edit top-level
             # items in this view anyway
-            return super(QtWidgets.QStyledItemDelegate, self).createEditor(
-                parent, option, index
-            )
+            print("the item has a parent")
 
-        # navigate to the parameter name through the parent item (it'll be
-        # on the same row, but col. 0)
-        parent_item = model.itemFromIndex(index.parent())
-        param_item = parent_item.child(index.row(), 0)
+            if index.column() == 1:
+                print("the item's col. is 1")
+                # col. 1 contains elements that may be combo boxes
 
-        #item = model.itemFromIndex(index)
-        #print("item (row) [param]: \"{}\" ({}) [{}]".format(
-        #    item.text(), index.row(), param_item.text())
-        #)
+                # navigate to the parameter name through the parent item (it'll
+                # be on the same row, but col. 0)
+                parent_item = model.itemFromIndex(index.parent())
+                param_item = parent_item.child(index.row(), 0)
 
-        if param_item.text() in ["effective radius", "volume fraction"]:
-            # we want a combo box for these
-            return QtWidgets.QComboBox(parent)
+                if param_item.text() == "mixture":
+                    print("gonna do a mixture combo box")
+                    # TODO: ONLY TEMPORARY EXAMPLE STUFF HERE RIGHT NOW
+                    cbox = QtWidgets.QComboBox(parent)
+                    cbox.addItems([
+                        "P(Q)*S(Q)",
+                        "P(Q)+S(Q)",
+                        "custom"
+                    ])
+                    return cbox
+
+                elif param_item.text() == "effective radius":
+                    print("gonna do an effective radius combo box")
+                    # TODO: ONLY TEMPORARY EXAMPLE STUFF HERE RIGHT NOW
+                    cbox = QtWidgets.QComboBox(parent)
+                    cbox.addItems([
+                        "ER_mean_curvature",
+                        "ER_equivalent_sphere",
+                        "ER_maximum_radius",
+                        "ER_minimum_radius"
+                    ])
+                    return cbox
+
+                elif param_item.text() == "volume fraction":
+                    print("gonna do a volume fraction combo box")
+                    # TODO: ONLY TEMPORARY EXAMPLE STUFF HERE RIGHT NOW
+                    cbox = QtWidgets.QComboBox(parent)
+                    cbox.addItems([
+                        "VR_something",
+                        "VR_something_else",
+                        "VR_something_completely_different"
+                    ])
+                    return cbox
 
         # return default otherwise
+        print("let's do a normal thing instead")
         return super(StructureViewDelegate, self).createEditor(
             parent, option, index
         )

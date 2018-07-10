@@ -332,7 +332,7 @@ class FittingWidget(QtWidgets.QWidget, Ui_FittingWidgetUI):
 
             QTreeView::item:hover {
                 background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #e7effd, stop: 1 #cbdaf1);
-                border: 1px solid #bfcde4;
+                /* border: 1px solid #bfcde4; */
             }
 
             QTreeView::item:selected {
@@ -370,7 +370,7 @@ class FittingWidget(QtWidgets.QWidget, Ui_FittingWidgetUI):
 
         # Structure factor options model (TEMPORARY EXAMPLE)
 
-        header_list = ["Property", "Value"]
+        header_list = ["Property", "Option", "Custom value"]
         num_cols = len(header_list)
         self._structure_model.setHorizontalHeaderLabels(header_list)
 
@@ -380,11 +380,10 @@ class FittingWidget(QtWidgets.QWidget, Ui_FittingWidgetUI):
             "volume fraction"
         ]
 
-        # these are just an example
         param_vals = [
-            "P(Q)S(Q)",
+            "P(Q)*S(Q)",
             "ER_mean_curvature",
-            "VR_something_or_other"
+            "VR_something"
         ]
 
         num_SoQs = 3
@@ -401,7 +400,10 @@ class FittingWidget(QtWidgets.QWidget, Ui_FittingWidgetUI):
                 item2 = QtGui.QStandardItem()
                 item2.setText(val)
 
-                item_toplevel.appendRow([item1, item2])
+                item3 = QtGui.QStandardItem()
+                item3.setEditable(False)
+
+                item_toplevel.appendRow([item1, item2, item3])
 
             row_toplevel = [item_toplevel]
             for i in range(num_cols - 1):
@@ -411,10 +413,36 @@ class FittingWidget(QtWidgets.QWidget, Ui_FittingWidgetUI):
 
             self._structure_model.appendRow(row_toplevel)
 
-        self.lstStructureOptions.setModel(self._structure_model)
-        self.lstStructureOptions.setItemDelegate(StructureViewDelegate(self))
-        self.lstStructureOptions.setAlternatingRowColors(True)
-        self.lstStructureOptions.setStyleSheet(stylesheet)
+        self._structure_model.itemChanged.connect(
+           self.onStructureViewItemChanged
+        )
+
+        view = self.lstStructureOptions
+
+        view.setModel(self._structure_model)
+        view.setItemDelegate(StructureViewDelegate(self))
+
+        view.setAlternatingRowColors(True)
+        view.setSizePolicy(
+            QtWidgets.QSizePolicy.MinimumExpanding,
+            QtWidgets.QSizePolicy.Expanding
+        )
+        view.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+
+        # resize all columns
+        for col in range(view.header().count()):
+            view.resizeColumnToContents(col)
+
+        view.setStyleSheet(stylesheet)
+
+        header = view.header()
+        #header.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+        header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        font = header.font()
+        font.setBold(True)
+        header.setFont(font)
+
+        view.expandAll()
 
     def initializeCategoryCombo(self):
         """
@@ -1059,6 +1087,25 @@ class FittingWidget(QtWidgets.QWidget, Ui_FittingWidgetUI):
                 func = self.getConstraintForRow(row).func
                 if func is not None:
                     self.communicate.statusBarUpdateSignal.emit("Active constrain: "+func)
+
+    def onStructureViewItemChanged(self, item):
+        """
+        Make changes as necessary when an item is modified in the structure
+        factor options view.
+        """
+        if -1 in [item.row(), item.column()]:
+            # not a child item (ignore)
+            return
+
+        # TODO: replace magic numbers, strings with stored params
+        if item.column() == 1:
+            custom_val_item = item.parent().child(item.row(), 2)
+            if item.text() == "custom":
+                custom_val_item.setEditable(True)
+                custom_val_item.setText("type here")
+            else:
+                custom_val_item.setEditable(False)
+                custom_val_item.setText("")
 
     def replaceConstraintName(self, old_name, new_name=""):
         """
