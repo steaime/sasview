@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QMdiArea
 from PyQt5.QtWidgets import QSplashScreen
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QPixmap
+import sys
 
 # Local UI
 from sas.qtgui.UI import main_resources_rc
@@ -15,6 +16,10 @@ class MainSasViewWindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(MainSasViewWindow, self).__init__(parent)
         self.setupUi(self)
+
+        # Temporary solution for problem with menubar on Mac
+        if sys.platform == "darwin":  # Mac
+            self.menubar.setNativeMenuBar(False)
 
         # define workspace for dialogs.
         self.workspace = QMdiArea(self)
