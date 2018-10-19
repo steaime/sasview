@@ -30,25 +30,30 @@ warnings.simplefilter("ignore")
 CANSAS_FORMAT = CansasConstants.CANSAS_FORMAT
 CANSAS_NS = CansasConstants.CANSAS_NS
 
+
+def find(filename):
+    return os.path.join(os.path.dirname(__file__), filename)
+
+
 class cansas_reader_xml(unittest.TestCase):
 
     def setUp(self):
         self.loader = Loader()
-        self.xml_valid = "cansas_test_modified.xml"
-        self.xml_invalid = "cansas_test.xml"
-        self.cansas1d_badunits = "cansas1d_badunits.xml"
-        self.cansas1d = "cansas1d.xml"
-        self.cansas1d_slit = "cansas1d_slit.xml"
-        self.cansas1d_units = "cansas1d_units.xml"
-        self.cansas1d_notitle = "cansas1d_notitle.xml"
-        self.isis_1_0 = "ISIS_1_0.xml"
-        self.isis_1_1 = "ISIS_1_1.xml"
-        self.isis_1_1_notrans = "ISIS_1_1_notrans.xml"
-        self.isis_1_1_doubletrans = "ISIS_1_1_doubletrans.xml"
-        self.schema_1_0 = "cansas1d_v1_0.xsd"
-        self.schema_1_1 = "cansas1d_v1_1.xsd"
-        self.write_1_0_filename = "isis_1_0_write_test.xml"
-        self.write_1_1_filename = "isis_1_1_write_test.xml"
+        self.xml_valid = find("cansas_test_modified.xml")
+        self.xml_invalid = find("cansas_test.xml")
+        self.cansas1d_badunits = find("cansas1d_badunits.xml")
+        self.cansas1d = find("cansas1d.xml")
+        self.cansas1d_slit = find("cansas1d_slit.xml")
+        self.cansas1d_units = find("cansas1d_units.xml")
+        self.cansas1d_notitle = find("cansas1d_notitle.xml")
+        self.isis_1_0 = find("ISIS_1_0.xml")
+        self.isis_1_1 = find("ISIS_1_1.xml")
+        self.isis_1_1_notrans = find("ISIS_1_1_notrans.xml")
+        self.isis_1_1_doubletrans = find("ISIS_1_1_doubletrans.xml")
+        self.schema_1_0 = find("cansas1d_v1_0.xsd")
+        self.schema_1_1 = find("cansas1d_v1_1.xsd")
+        self.write_1_0_filename = find("isis_1_0_write_test.xml")
+        self.write_1_1_filename = find("isis_1_1_write_test.xml")
 
     def get_number_of_entries(self, dictionary, name, i):
         if dictionary.get(name) is not None:
@@ -85,10 +90,7 @@ class cansas_reader_xml(unittest.TestCase):
     def test_real_xml(self):
         reader = XMLreader(self.xml_valid, self.schema_1_0)
         valid = reader.validate_xml()
-        if valid:
-            self.assertTrue(valid)
-        else:
-            self.assertFalse(valid)
+        self.assertTrue(valid)
 
     def _check_data(self, data):
         self.assertTrue(data.title == "TK49 c10_SANS")
@@ -187,8 +189,7 @@ class cansas_reader_xml(unittest.TestCase):
 
     def test_save_cansas_v1_0(self):
         xmlreader = XMLreader(self.isis_1_0, self.schema_1_0)
-        valid = xmlreader.validate_xml()
-        self.assertTrue(valid)
+        self.assertTrue(xmlreader.validate_xml())
         reader_generic = Loader()
         dataloader = reader_generic.load(self.isis_1_0)
         reader_cansas = Reader()
@@ -201,9 +202,8 @@ class cansas_reader_xml(unittest.TestCase):
             self.assertTrue(os.path.isfile(self.write_1_0_filename))
             return_data = reader2.read(self.write_1_0_filename)
             written_data = return_data[0]
-            XMLreader(self.write_1_0_filename, self.schema_1_0)
-            valid = xmlreader.validate_xml()
-            self.assertTrue(valid)
+            xmlreader = XMLreader(self.write_1_0_filename, self.schema_1_0)
+            self.assertTrue(xmlreader.validate_xml())
             self._check_data(written_data)
         if os.path.isfile(self.write_1_0_filename):
             os.remove(self.write_1_0_filename)
@@ -253,10 +253,13 @@ class cansas_reader_hdf5(unittest.TestCase):
 
     def setUp(self):
         self.loader = Loader()
-        self.datafile_basic = "simpleexamplefile.h5"
-        self.datafile_multiplesasentry = "cansas_1Dand2D_samedatafile.h5"
-        self.datafile_multiplesasdata = "cansas_1Dand2D_samesasentry.h5"
-        self.datafile_multiplesasdata_multiplesasentry = "cansas_1Dand2D_multiplesasentry_multiplesasdata.h5"
+        self.datafile_basic = find("simpleexamplefile.h5")
+        self.datafile_multiplesasentry = find(
+            "test_data" + os.sep + "nxcansas_1Dand2D_multisasentry.h5")
+        self.datafile_multiplesasdata = find(
+            "test_data" + os.sep + "nxcansas_1Dand2D_multisasdata.h5")
+        self.datafile_multiplesasdata_multiplesasentry = find(
+            "test_data" + os.sep + "nxcansas_1Dand2D_multisasentry_multisasdata.h5")
 
     def test_real_data(self):
         self.data = self.loader.load(self.datafile_basic)
@@ -267,42 +270,77 @@ class cansas_reader_hdf5(unittest.TestCase):
         self.assertTrue(len(self.data) == 2)
         self._check_multiple_data(self.data[0])
         self._check_multiple_data(self.data[1])
-        self._check_1d_data(self.data[0])
+        if isinstance(self.data[0], Data1D):
+            self._check_1d_data(self.data[0])
+            self._check_2d_data(self.data[1])
+        else:
+            self._check_1d_data(self.data[1])
+            self._check_2d_data(self.data[0])
+
+    def test_multiple_sasdatas(self):
+        self.data = self.loader.load(self.datafile_multiplesasdata)
+        self.assertTrue(len(self.data) == 2)
+        self._check_multiple_data(self.data[0])
+        self._check_multiple_data(self.data[1])
+        if isinstance(self.data[0], Data1D):
+            self._check_1d_data(self.data[0])
+            self._check_2d_data(self.data[1])
+        else:
+            self._check_1d_data(self.data[1])
+            self._check_2d_data(self.data[0])
+
+    def test_multiple_sasentries_multiplesasdatas(self):
+        self.data = self.loader.load(
+            self.datafile_multiplesasdata_multiplesasentry)
+        self.assertTrue(len(self.data) == 4)
+        self._check_multiple_data(self.data[0])
+        self._check_multiple_data(self.data[1])
+        self._check_multiple_data(self.data[2])
+        self._check_multiple_data(self.data[3])
+        for data in self.data:
+            if isinstance(data, Data1D):
+                self._check_1d_data(data)
+            else:
+                self._check_2d_data(data)
 
     def _check_multiple_data(self, data):
-        self.assertTrue(data.title == "MH4_5deg_16T_SLOW")
-        self.assertTrue(data.run[0] == '33837')
-        self.assertTrue(len(data.run) == 1)
-        self.assertTrue(data.instrument == "SANS2D")
-        self.assertTrue(data.source.radiation == "Spallation Neutron Source")
-        self.assertTrue(len(data.detector) == 1)
-        self.assertTrue(data.detector[0].name == "rear-detector")
-        self.assertTrue(data.detector[0].distance == 4.385281)
-        self.assertTrue(data.detector[0].distance_unit == 'm')
-        self.assertTrue(len(data.trans_spectrum) == 1)
+        self.assertEqual(data.title, "MH4_5deg_16T_SLOW")
+        self.assertEqual(data.run[0], '33837')
+        self.assertEqual(len(data.run), 1)
+        self.assertEqual(data.instrument, "SANS2D")
+        self.assertEqual(data.source.radiation, "Spallation Neutron Source")
+        self.assertEqual(len(data.detector), 2)
+        self.assertTrue(data.detector[0].name == "rear-detector"
+                        or data.detector[1].name == "rear-detector")
+        self.assertTrue(data.detector[0].name == "front-detector"
+                        or data.detector[1].name == "front-detector")
+        self.assertAlmostEqual(data.detector[0].distance +
+                               data.detector[1].distance, 7230.54, 2)
+        self.assertEqual(data.detector[0].distance_unit, 'mm')
+        self.assertEqual(len(data.trans_spectrum), 1)
 
     def _check_1d_data(self, data):
-        self.assertTrue(isinstance(data, Data1D))
-        self.assertTrue(len(data.x) == 66)
-        self.assertTrue(len(data.x) == len(data.y))
-        self.assertTrue(data.dy[10] == 0.20721350111248701)
-        self.assertTrue(data.y[10] == 24.193889608153476)
-        self.assertTrue(data.x[10] == 0.008981127988654792)
+        self.assertEqual(len(data.x), 66)
+        self.assertEqual(len(data.x), len(data.y))
+        self.assertAlmostEqual(data.dy[10], 0.207214)
+        self.assertAlmostEqual(data.y[10], 24.1939)
+        self.assertAlmostEqual(data.x[10], 0.00898113)
 
     def _check_2d_data(self, data):
         self.assertTrue(isinstance(data, Data2D))
-        self.assertTrue(len(data.x) == 66)
-        self.assertTrue(len(data.x) == len(data.y))
-        self.assertTrue(data.dy[10] == 0.20721350111248701)
-        self.assertTrue(data.y[10] == 24.193889608153476)
-        self.assertTrue(data.x[10] == 0.008981127988654792)
+        self.assertEqual(len(data.q_data), 150*150)
+        self.assertEqual(len(data.q_data), len(data.data))
+        self.assertAlmostEqual(data.err_data[10], 0.186723989418)
+        self.assertAlmostEqual(data.data[10], 0.465181)
+        self.assertAlmostEqual(data.qx_data[10], -0.129)
+        self.assertAlmostEqual(data.qy_data[10], -0.149)
 
     def _check_example_data(self, data):
-        self.assertTrue(data.title == "")
-        self.assertTrue(data.x.size == 100)
-        self.assertTrue(data._xunit == "A^{-1}")
-        self.assertTrue(data._yunit == "cm^{-1}")
-        self.assertTrue(data.y.size == 100)
+        self.assertEqual(data.title, "")
+        self.assertEqual(data.x.size, 100)
+        self.assertEqual(data._xunit, "A^{-1}")
+        self.assertEqual(data._yunit, "cm^{-1}")
+        self.assertEqual(data.y.size, 100)
         self.assertAlmostEqual(data.y[40], 0.952749011516985)
         self.assertAlmostEqual(data.x[40], 0.3834415188257777)
         self.assertAlmostEqual(len(data.meta_data), 0)

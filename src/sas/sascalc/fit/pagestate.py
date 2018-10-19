@@ -12,6 +12,7 @@ Class that holds a fit page state
 # copyright 2009, University of Tennessee
 ################################################################################
 import time
+import re
 import os
 import sys
 import copy
@@ -638,13 +639,19 @@ class PageState(object):
             elif name == "Title":
                 if len(value.strip()) == 0:
                     continue
-                title = value + " [" + repo_time + "]"
+                title = (value + " [" + repo_time + "] [SasView v" +
+                         SASVIEW_VERSION + "]")
                 title_name = HEADER % title
             elif name == "data":
                 try:
                     # parsing "data : File:     filename [mmm dd hh:mm]"
                     name = value.split(':', 1)[1].strip()
                     file_value = "File name:" + name
+                    #Truncating string so print doesn't complain of being outside margins
+                    if sys.platform != "win32":
+                        MAX_STRING_LENGHT = 50
+                        if len(file_value) > MAX_STRING_LENGHT:
+                            file_value = "File name:.."+file_value[-MAX_STRING_LENGHT+10:]
                     file_name = CENTRE % file_value
                     if len(title) == 0:
                         title = name + " [" + repo_time + "]"
@@ -720,11 +727,14 @@ class PageState(object):
         # get the strings for report
         html_str, text_str, title = self._get_report_string()
         # Allow 2 figures to append
-        image_links = [FEET_2%fig for fig in fig_urls]
-
+        #Constraining image width for OSX and linux, so print doesn't complain of being outside margins
+        if sys.platform == "win32":
+            image_links = [FEET_2%fig for fig in fig_urls]
+        else:
+            image_links = [FEET_2_unix%fig for fig in fig_urls]
         # final report html strings
         report_str = html_str + ELINE.join(image_links)
-
+        report_str += FEET_3
         return report_str, text_str
 
     def _to_xml_helper(self, thelist, element, newdoc):
@@ -953,8 +963,8 @@ class PageState(object):
 
         if node.get('version'):
             # Get the version for model conversion purposes
-            self.version = tuple(int(e) for e in
-                                 str.split(node.get('version'), "."))
+            x = re.sub('[^\d.]', '', node.get('version'))
+            self.version = tuple(int(e) for e in str.split(x, "."))
             # The tuple must be at least 3 items long
             while len(self.version) < 3:
                 ver_list = list(self.version)
@@ -1367,7 +1377,10 @@ FEET_1 = \
 <br><font size='4' >Data: "%s"</font><br>
 """
 FEET_2 = \
-"""<img src="%s" ></img>
+"""<img src="%s"></img>
+"""
+FEET_2_unix = \
+"""<img src="%s" width="540"></img>
 """
 FEET_3 = \
 """</center>

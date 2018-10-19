@@ -2,6 +2,8 @@
     FitPanel class contains fields allowing to display results when
     fitting  a model and one data
 """
+from __future__ import print_function
+
 import sys
 import wx
 import wx.lib.newevent
@@ -364,7 +366,7 @@ class FitPage(BasicPage):
 
         # StaticText for chi2, N(for fitting), Npts + Log/linear spacing
         self.tcChi = BGTextCtrl(self, wx.ID_ANY, "-", size=(75, 20), style=0)
-        self.tcChi.SetToolTipString("Chi2/Npts(Fit)")
+        self.tcChi.SetToolTipString("Chi2/DOF (DOF=Npts-Npar fitted)")
         self.Npts_fit = BGTextCtrl(self, wx.ID_ANY, "-", size=(75, 20), style=0)
         self.Npts_fit.SetToolTipString(
             " Npts : number of points selected for fitting")
@@ -390,7 +392,7 @@ class FitPage(BasicPage):
         self.points_sizer.Add(wx.StaticText(self, wx.ID_ANY, 'Npts    '))
         self.points_sizer.Add(self.pointsbox)
 
-        box_description_1 = wx.StaticText(self, wx.ID_ANY, '   Chi2/Npts')
+        box_description_1 = wx.StaticText(self, wx.ID_ANY, 'Reduced Chi2')
         box_description_2 = wx.StaticText(self, wx.ID_ANY, 'Npts(Fit)')
 
         # StaticText for smear
@@ -705,9 +707,8 @@ class FitPage(BasicPage):
                             text2.Hide()
 
                         ix = 3
-                        ctl2 = wx.TextCtrl(self, wx.ID_ANY,
-                                           size=(_BOX_WIDTH / 1.3, 20),
-                                           style=0)
+                        ctl2 = BGTextCtrl(self, wx.ID_ANY,
+                                           size=(_BOX_WIDTH / 1.3, 20))
 
                         self.sizer4_4.Add(ctl2, (iy, ix), (1, 1),
                                           wx.EXPAND | wx.ADJUST_MINSIZE, 0)
@@ -1078,7 +1079,7 @@ class FitPage(BasicPage):
         :param evt: Triggers on clicking the help button
         """
 
-        _TreeLocation = "user/sasgui/perspectives/fitting/sm_help.html"
+        _TreeLocation = "user/sasgui/perspectives/fitting/resolution.html"
         _doc_viewer = DocumentationWindow(self, wx.ID_ANY, _TreeLocation, "",
                                           "Instrumental Resolution Smearing \
                                           Help")
@@ -1255,6 +1256,9 @@ class FitPage(BasicPage):
         # Keep the previous param values
         if saved_pars:
             self.get_paste_params(saved_pars)
+
+        # Make sure the model parameters correspond to the fit parameters
+        self._update_paramv_on_fit()
 
         if event is not None:
             # update list of plugins if new plugin is available
@@ -1725,18 +1729,8 @@ class FitPage(BasicPage):
         if self.model.__class__ not in self.model_list_box["Multi-Functions"] \
                 and not self.temp_multi_functional:
             return None
-        # Get the func name list
-        list = self.model.fun_list
-        if len(list) == 0:
-            return None
-        # build function (combo)box
-        ind = 0
-        while(ind < len(list)):
-            for key, val in list.items():
-                if val == ind:
-                    fun_box.Append(key, val)
-                    break
-            ind += 1
+        for index, choice in enumerate(self.model.fun_list):
+            fun_box.Append(choice, index)
 
     def _on_select_accuracy(self, event):
         """
@@ -1764,7 +1758,7 @@ class FitPage(BasicPage):
         name = fun_box.Name
         value = fun_box.GetValue()
         if value in self.model.fun_list:
-            fun_val = self.model.fun_list[value]
+            fun_val = self.model.fun_list.index(value)
 
         self.model.setParam(name, fun_val)
         # save state
@@ -2007,6 +2001,7 @@ class FitPage(BasicPage):
 
         self.on_smear_helper()
         self.on_set_focus(None)
+        self.Layout()
         self.Refresh()
         # update model plot with new data information
         if flag:
@@ -2901,8 +2896,8 @@ class FitPage(BasicPage):
                     if not self.is_mac:
                         text2.Hide()
                     ix += 1
-                    ctl2 = wx.TextCtrl(self, wx.ID_ANY,
-                                       size=(_BOX_WIDTH / 1.2, 20), style=0)
+                    ctl2 = BGTextCtrl(self, wx.ID_ANY,
+                                       size=(_BOX_WIDTH / 1.2, 20))
                     sizer.Add(ctl2, (iy, ix), (1, 1),
                               wx.EXPAND | wx.ADJUST_MINSIZE, 0)
                     if not self.is_mac:

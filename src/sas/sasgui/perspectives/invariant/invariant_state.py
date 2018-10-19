@@ -11,6 +11,7 @@ import sas.sascalc.dataloader
 # from xml.dom.minidom import parse
 from lxml import etree
 from sas.sascalc.dataloader.readers.cansas_reader import Reader as CansasReader
+from sas.sasgui.guiframe.report_image_handler import ReportImageHandler
 from sas.sascalc.dataloader.readers.cansas_reader import get_content
 from sas.sasgui.guiframe.utils import format_number
 from sas.sasgui.guiframe.gui_style import GUIFRAME_ID
@@ -128,10 +129,12 @@ class InvariantState(object):
         compute_state = self.state_list[str(compute_num)]
         my_time, date = self.timestamp
         file_name = self.file
+        from sas.sasview.__init__ import __version__ as sasview_version
 
         state_num = int(self.saved_state['state_num'])
         state = "\n[Invariant computation for %s: " % file_name
-        state += "performed at %s on %s] \n" % (my_time, date)
+        state += "performed at %s on %s] " % (my_time, date)
+        state += "[SasView v%s]\n" % (sasview_version)
         state += "State No.: %d \n" % state_num
         state += "\n=== Inputs ===\n"
 
@@ -610,14 +613,10 @@ class InvariantState(object):
         # get the dynamic image for the htmlwindow
         wximgbmp = wx.BitmapFromImage(wximg)
         # store the image in wx.FileSystem Object
-        wx.FileSystem.AddHandler(wx.MemoryFSHandler())
-        # use wx.MemoryFSHandler
-        self.imgRAM = wx.MemoryFSHandler()
-        # AddFile, image can be retrieved with 'memory:filename'
-        self.imgRAM.AddFile('img_inv.png', wximgbmp, wx.BITMAP_TYPE_PNG)
+        imgs, refs = ReportImageHandler.set_figs([fig], [wximgbmp], 'inv')
 
-        self.wximgbmp = 'memory:img_inv.png'
-        self.image = fig
+        self.wximgbmp = refs[0]
+        self.image = imgs[0]
 
 class Reader(CansasReader):
     """
@@ -654,7 +653,7 @@ class Reader(CansasReader):
         : param path: file path
         : return: None
         """
-        if self.cansas == True:
+        if self.cansas:
             return self._read_cansas(path)
         else:
             return self._read_standalone(path)
@@ -762,7 +761,7 @@ class Reader(CansasReader):
         : param invstate: InvariantState object
         """
         # Sanity check
-        if self.cansas == True:
+        if self.cansas:
             doc = self.write_toXML(datainfo, invstate)
             # Write the XML document
             fd = open(filename, 'w')

@@ -250,9 +250,19 @@ class SlicerParameterPanel(wx.Dialog):
             self.Bind(wx.EVT_BUTTON, self.on_batch_slicer)
             self.bck.Add(self.batch_slicer_button, (iy, ix), (1, 1),
                          wx.LEFT | wx.EXPAND | wx.ADJUST_MINSIZE, 15)
+            # Help button
+
+            self.bt_help = wx.Button(self, wx.NewId(), "HELP")
+            self.bt_help.SetToolTipString(
+                "Help for the slicer parameters and batch slicing.")
+            self.bck.Add(self.bt_help, (iy, 1), (1, 1),
+                         wx.ALIGN_RIGHT | wx.ADJUST_MINSIZE, 15)
+            wx.EVT_BUTTON(self, self.bt_help.GetId(), self.on_help)
+
             iy += 1
             self.bck.Add((5, 5), (iy, ix), (1, 1),
                          wx.LEFT | wx.EXPAND | wx.ADJUST_MINSIZE, 5)
+
         self.bck.Layout()
         self.bck.Fit(self)
         self.parent.GetSizer().Layout()
@@ -394,8 +404,10 @@ class SlicerParameterPanel(wx.Dialog):
     def apply_params_list_and_process(self, evt=None):
         """
         Event based parameter setting.
+
         :param evt: Event triggered to apply parameters to a list of plots
-                    evt should have attrs plot_list and params
+           evt should have attrs plot_list and params
+
         """
         if evt is None:
             return
@@ -466,7 +478,7 @@ class SlicerParameterPanel(wx.Dialog):
     def send_to_fitting(self, fit=FIT_OPTIONS[0], file_list=None):
         """
         Send a list of data to the fitting perspective
-        :param fit: fit type desired 
+        :param fit: fit type desired
         :param file_list: list of loaded file names to send to fit
         """
         if fit in FIT_OPTIONS and fit != FIT_OPTIONS[0] and \
@@ -532,3 +544,16 @@ class SlicerParameterPanel(wx.Dialog):
         for key in params:
             self.default_value += "_{0}".format(key).split(" [")[0]
             self.default_value += "-{:.2f}".format(params[key])
+
+    def on_help(self, event=None):
+        """
+        Opens a help window for the slicer parameters/batch slicing window
+        :param event:
+        :return:
+        """
+        from sas.sasgui.guiframe.documentation_window import DocumentationWindow
+
+        _TreeLocation = "user/sasgui/guiframe/graph_help.html"
+        _doc_viewer = DocumentationWindow(self, wx.ID_ANY, _TreeLocation,
+                                          "#d-data-averaging",
+                                          "Data Explorer Help")

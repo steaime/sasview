@@ -89,6 +89,8 @@ class Registry(ExtensionRegistry):
         try:
             ascii_loader = ascii_reader.Reader()
             return ascii_loader.read(path)
+        except NoKnownLoaderException:
+            pass  # Try the Cansas XML reader
         except DefaultReaderException:
             pass  # Loader specific error to try the cansas XML reader
         except FileContentsException as e:
@@ -99,6 +101,8 @@ class Registry(ExtensionRegistry):
         try:
             cansas_loader = cansas_reader.Reader()
             return cansas_loader.read(path)
+        except NoKnownLoaderException:
+            pass  # Try the NXcanSAS reader
         except DefaultReaderException:
             pass  # Loader specific error to try the NXcanSAS reader
         except FileContentsException as e:
@@ -362,10 +366,11 @@ class Registry(ExtensionRegistry):
         for fn in writers:
             try:
                 return fn(path, data)
-            except Exception:
-                pass  # give other loaders a chance to succeed
-        # If we get here it is because all loaders failed
-        raise  # reraises last exception
+            except Exception as exc:
+                msg = "Saving file {} using the {} writer failed.\n".format(
+                    path, type(fn).__name__)
+                msg += str(exc)
+                logger.exception(msg)  # give other loaders a chance to succeed
 
 
 class Loader(object):

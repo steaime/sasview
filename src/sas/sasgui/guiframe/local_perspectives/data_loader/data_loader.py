@@ -89,7 +89,7 @@ class Plugin(PluginBase):
 
     def can_load_data(self):
         """
-        if return True, then call handler to laod data
+        if return True, then call handler to load data
         """
         return True
 
@@ -181,10 +181,9 @@ class Plugin(PluginBase):
                 logger.info(log_msg)
                 file_errors[basename] = [log_msg]
                 continue
-
             try:
                 message = "Loading {}...\n".format(p_file)
-                self.load_update(output=output, message=message, info="info")
+                self.load_update(message=message, info="info")
                 temp = self.loader.load(p_file, format)
                 if not isinstance(temp, list):
                     temp = [temp]
@@ -200,24 +199,15 @@ class Plugin(PluginBase):
                             file_errors[basename] += [error_message]
                         else:
                             file_errors[basename] = [error_message]
-                        self.load_update(output=output,
-                            message=error_message, info="warning")
 
-                self.load_update(output=output,
-                message="Loaded {}\n".format(p_file),
-                info="info")
-
+                self.load_update(message="Loaded {}\n".format(p_file),
+                                 info="info")
             except NoKnownLoaderException as e:
                 exception_occurred = True
-                logger.error(e.message)
-
                 error_message = "Loading data failed!\n" + e.message
-                self.load_update(output=None, message=e.message, info="warning")
-
+                file_errors[basename] = [error_message]
             except Exception as e:
                 exception_occurred = True
-                logger.error(e.message)
-
                 file_err = "The Data file you selected could not be "
                 file_err += "loaded.\nMake sure the content of your file"
                 file_err += " is properly formatted.\n"
@@ -229,34 +219,34 @@ class Plugin(PluginBase):
         if len(file_errors) > 0:
             error_message = ""
             for filename, error_array in file_errors.iteritems():
-                error_message += "The following errors occured whilst "
+                error_message += "The following issues were found whilst "
                 error_message += "loading {}:\n".format(filename)
                 for message in error_array:
                     error_message += message + "\n"
-                error_message += "\n"
-            if not exception_occurred: # Some data loaded but with errors
-                self.load_update(output=output, message=error_message, info="error")
+                error_message = error_message[:-1]
+            self.load_complete(output=output,
+                               message=error_message,
+                               info="error")
 
-        if not exception_occurred: # Everything loaded as expected
+        elif not exception_occurred: # Everything loaded as expected
             self.load_complete(output=output, message="Loading data complete!",
                                info="info")
-        else:
-            self.load_complete(output=None, message=error_message, info="error")
 
-
-    def load_update(self, output=None, message="", info="warning"):
+    def load_update(self, message="", info="warning"):
         """
         print update on the status bar
         """
         if message != "":
-            wx.PostEvent(self.parent, StatusEvent(status=message, info=info,
+            wx.PostEvent(self.parent, StatusEvent(status=message,
+                                                  info=info,
                                                   type="progress"))
 
     def load_complete(self, output, message="", info="warning"):
         """
          post message to status bar and return list of data
         """
-        wx.PostEvent(self.parent, StatusEvent(status=message, info=info,
+        wx.PostEvent(self.parent, StatusEvent(status=message,
+                                              info=info,
                                               type="stop"))
         if output is not None:
             self.parent.add_data(data_list=output)

@@ -11,12 +11,13 @@ import sys
 from ..data_info import plottable_1D, plottable_2D,\
     Data1D, Data2D, DataInfo, Process, Aperture, Collimation, \
     TransmissionSpectrum, Detector
-from ..data_info import combine_data_info_with_plottable
 from ..loader_exceptions import FileContentsException, DefaultReaderException
 from ..file_reader_base_class import FileReader, decode
 
+
 def h5attr(node, key, default=None):
     return decode(node.attrs.get(key, default))
+
 
 class Reader(FileReader):
     """
@@ -37,20 +38,10 @@ class Reader(FileReader):
 
     # CanSAS version
     cansas_version = 2.0
-    # Logged warnings or messages
-    logging = None
-    # List of errors for the current data set
-    errors = None
-    # Raw file contents to be processed
-    raw_data = None
-    # List of plottable1D objects that should be linked to the current_datainfo
-    data1d = None
-    # List of plottable2D objects that should be linked to the current_datainfo
-    data2d = None
     # Data type name
-    type_name = "CanSAS 2.0"
+    type_name = "NXcanSAS"
     # Wildcards
-    type = ["CanSAS 2.0 HDF5 Files (*.h5)|*.h5"]
+    type = ["NXcanSAS HDF5 Files (*.h5)|*.h5|"]
     # List of allowed extensions
     ext = ['.h5', '.H5']
     # Flag to bypass extension check
@@ -64,7 +55,7 @@ class Reader(FileReader):
         :return: List of Data1D/2D objects and/or a list of errors.
         """
         # Reinitialize when loading a new data file to reset all class variables
-        self.reset_class_variables()
+        self.reset_state()
 
         filename = self.f_open.name
         self.f_open.close() # IO handled by h5py
@@ -80,7 +71,8 @@ class Reader(FileReader):
                     self.raw_data = h5py.File(filename, 'r')
                 except Exception as e:
                     if extension not in self.ext:
-                        msg = "CanSAS2.0 HDF5 Reader could not load file {}".format(basename + extension)
+                        msg = "NXcanSAS Reader could not load file {}".format(
+                            basename + extension)
                         raise DefaultReaderException(msg)
                     raise FileContentsException(e.message)
                 try:
@@ -94,24 +86,30 @@ class Reader(FileReader):
                     # Close the data file
                     self.raw_data.close()
 
-                for dataset in self.output:
-                    if isinstance(dataset, Data1D):
-                        if dataset.x.size < 5:
-                            self.output = []
-                            raise FileContentsException("Fewer than 5 data points found.")
+                for data_set in self.output:
+                    if isinstance(data_set, Data1D):
+                        if data_set.x.size < 5:
+                            exception = FileContentsException(
+                                "Fewer than 5 data points found.")
+                            data_set.errors.append(exception)
 
-    def reset_class_variables(self):
+    def reset_state(self):
         """
         Create the reader object and define initial states for class variables
         """
-        self.current_datainfo = None
-        self.current_dataset = None
+        super(Reader, self).reset_state()
         self.data1d = []
         self.data2d = []
         self.raw_data = None
         self.errors = set()
         self.logging = []
-        self.output = []
+        self.q_names = []
+        self.mask_name = u''
+        self.i_name = u''
+        self.i_node = u''
+        self.i_uncertainties_name = u''
+        self.q_uncertainty_names = []
+        self.q_resolution_names = []
         self.parent_class = u''
         self.detector = Detector()
         self.collimation = Collimation()
@@ -132,6 +130,8 @@ class Reader(FileReader):
             # Get all information for the current key
             value = data.get(key)
             class_name = h5attr(value, u'canSAS_class')
+            if isinstance(class_name, (list, tuple, np.ndarray)):
+                class_name = class_name[0]
             if class_name is None:
                 class_name = h5attr(value, u'NX_class')
             if class_name is not None:
@@ -141,6 +141,7 @@ class Reader(FileReader):
 
             if isinstance(value, h5py.Group):
                 # Set parent class before recursion
+                last_parent_class = self.parent_class
                 self.parent_class = class_name
                 parent_list.append(key)
                 # If a new sasentry, store the current data sets and create
@@ -148,81 +149,19 @@ class Reader(FileReader):
                 if class_prog.match(u'SASentry'):
                     self.add_data_set(key)
                 elif class_prog.match(u'SASdata'):
-                    self._initialize_new_data_set(parent_list)
+                    self._initialize_new_data_set(value)
+                    self._find_data_attributes(value)
                 # Recursion step to access data within the group
                 self.read_children(value, parent_list)
-                # Reset parent class when returning from recursive method
-                self.parent_class = class_name
                 self.add_intermediate()
+                # Reset parent class when returning from recursive method
+                self.parent_class = last_parent_class
                 parent_list.remove(key)
 
             elif isinstance(value, h5py.Dataset):
                 # If this is a dataset, store the data appropriately
-                data_set = data[key][:]
+                data_set = value.value
                 unit = self._get_unit(value)
-
-                # I and Q Data
-                if key == u'I':
-                    if isinstance(self.current_dataset, plottable_2D):
-                        self.current_dataset.data = data_set
-                        self.current_dataset.zaxis("Intensity", unit)
-                    else:
-                        self.current_dataset.y = data_set.flatten()
-                        self.current_dataset.yaxis("Intensity", unit)
-                    continue
-                elif key == u'Idev':
-                    if isinstance(self.current_dataset, plottable_2D):
-                        self.current_dataset.err_data = data_set.flatten()
-                    else:
-                        self.current_dataset.dy = data_set.flatten()
-                    continue
-                elif key == u'Q':
-                    self.current_dataset.xaxis("Q", unit)
-                    if isinstance(self.current_dataset, plottable_2D):
-                        self.current_dataset.q = data_set.flatten()
-                    else:
-                        self.current_dataset.x = data_set.flatten()
-                    continue
-                elif key == u'Qdev':
-                    self.current_dataset.dx = data_set.flatten()
-                    continue
-                elif key == u'dQw':
-                    self.current_dataset.dxw = data_set.flatten()
-                    continue
-                elif key == u'dQl':
-                    self.current_dataset.dxl = data_set.flatten()
-                    continue
-                elif key == u'Qy':
-                    self.current_dataset.yaxis("Q_y", unit)
-                    self.current_dataset.qy_data = data_set.flatten()
-                    continue
-                elif key == u'Qydev':
-                    self.current_dataset.dqy_data = data_set.flatten()
-                    continue
-                elif key == u'Qx':
-                    self.current_dataset.xaxis("Q_x", unit)
-                    self.current_dataset.qx_data = data_set.flatten()
-                    continue
-                elif key == u'Qxdev':
-                    self.current_dataset.dqx_data = data_set.flatten()
-                    continue
-                elif key == u'Mask':
-                    self.current_dataset.mask = data_set.flatten()
-                    continue
-                # Transmission Spectrum
-                elif (key == u'T'
-                      and self.parent_class == u'SAStransmission_spectrum'):
-                    self.trans_spectrum.transmission = data_set.flatten()
-                    continue
-                elif (key == u'Tdev'
-                      and self.parent_class == u'SAStransmission_spectrum'):
-                    self.trans_spectrum.transmission_deviation = \
-                        data_set.flatten()
-                    continue
-                elif (key == u'lambda'
-                      and self.parent_class == u'SAStransmission_spectrum'):
-                    self.trans_spectrum.wavelength = data_set.flatten()
-                    continue
 
                 for data_point in data_set:
                     if isinstance(data_point, np.ndarray):
@@ -233,6 +172,7 @@ class Reader(FileReader):
                     # Top Level Meta Data
                     if key == u'definition':
                         self.current_datainfo.meta_data['reader'] = data_point
+                    # Run
                     elif key == u'run':
                         self.current_datainfo.run.append(data_point)
                         try:
@@ -241,169 +181,45 @@ class Reader(FileReader):
                             self.current_datainfo.run_name = run_dict
                         except Exception:
                             pass
+                    # Title
                     elif key == u'title':
                         self.current_datainfo.title = data_point
+                    # Note
                     elif key == u'SASnote':
                         self.current_datainfo.notes.append(data_point)
-
                     # Sample Information
-                    # CanSAS 2.0 format
-                    elif key == u'Title' and self.parent_class == u'SASsample':
-                        self.current_datainfo.sample.name = data_point
-                    # NXcanSAS format
-                    elif key == u'name' and self.parent_class == u'SASsample':
-                        self.current_datainfo.sample.name = data_point
-                    # NXcanSAS format
-                    elif key == u'ID' and self.parent_class == u'SASsample':
-                        self.current_datainfo.sample.name = data_point
-                    elif (key == u'thickness'
-                          and self.parent_class == u'SASsample'):
-                        self.current_datainfo.sample.thickness = data_point
-                    elif (key == u'temperature'
-                          and self.parent_class == u'SASsample'):
-                        self.current_datainfo.sample.temperature = data_point
-                    elif (key == u'transmission'
-                          and self.parent_class == u'SASsample'):
-                        self.current_datainfo.sample.transmission = data_point
-                    elif (key == u'x_position'
-                          and self.parent_class == u'SASsample'):
-                        self.current_datainfo.sample.position.x = data_point
-                    elif (key == u'y_position'
-                          and self.parent_class == u'SASsample'):
-                        self.current_datainfo.sample.position.y = data_point
-                    elif key == u'pitch' and self.parent_class == u'SASsample':
-                        self.current_datainfo.sample.orientation.x = data_point
-                    elif key == u'yaw' and self.parent_class == u'SASsample':
-                        self.current_datainfo.sample.orientation.y = data_point
-                    elif key == u'roll' and self.parent_class == u'SASsample':
-                        self.current_datainfo.sample.orientation.z = data_point
-                    elif (key == u'details'
-                          and self.parent_class == u'SASsample'):
-                        self.current_datainfo.sample.details.append(data_point)
-
+                    elif self.parent_class == u'SASsample':
+                        self.process_sample(data_point, key)
                     # Instrumental Information
                     elif (key == u'name'
                           and self.parent_class == u'SASinstrument'):
                         self.current_datainfo.instrument = data_point
-                    elif key == u'name' and self.parent_class == u'SASdetector':
-                        self.detector.name = data_point
-                    elif key == u'SDD' and self.parent_class == u'SASdetector':
-                        self.detector.distance = float(data_point)
-                        self.detector.distance_unit = unit
-                    elif (key == u'slit_length'
-                          and self.parent_class == u'SASdetector'):
-                        self.detector.slit_length = float(data_point)
-                        self.detector.slit_length_unit = unit
-                    elif (key == u'x_position'
-                          and self.parent_class == u'SASdetector'):
-                        self.detector.offset.x = float(data_point)
-                        self.detector.offset_unit = unit
-                    elif (key == u'y_position'
-                          and self.parent_class == u'SASdetector'):
-                        self.detector.offset.y = float(data_point)
-                        self.detector.offset_unit = unit
-                    elif (key == u'pitch'
-                          and self.parent_class == u'SASdetector'):
-                        self.detector.orientation.x = float(data_point)
-                        self.detector.orientation_unit = unit
-                    elif key == u'roll' and self.parent_class == u'SASdetector':
-                        self.detector.orientation.z = float(data_point)
-                        self.detector.orientation_unit = unit
-                    elif key == u'yaw' and self.parent_class == u'SASdetector':
-                        self.detector.orientation.y = float(data_point)
-                        self.detector.orientation_unit = unit
-                    elif (key == u'beam_center_x'
-                          and self.parent_class == u'SASdetector'):
-                        self.detector.beam_center.x = float(data_point)
-                        self.detector.beam_center_unit = unit
-                    elif (key == u'beam_center_y'
-                          and self.parent_class == u'SASdetector'):
-                        self.detector.beam_center.y = float(data_point)
-                        self.detector.beam_center_unit = unit
-                    elif (key == u'x_pixel_size'
-                          and self.parent_class == u'SASdetector'):
-                        self.detector.pixel_size.x = float(data_point)
-                        self.detector.pixel_size_unit = unit
-                    elif (key == u'y_pixel_size'
-                          and self.parent_class == u'SASdetector'):
-                        self.detector.pixel_size.y = float(data_point)
-                        self.detector.pixel_size_unit = unit
-                    elif (key == u'distance'
-                          and self.parent_class == u'SAScollimation'):
-                        self.collimation.length = data_point
-                        self.collimation.length_unit = unit
-                    elif (key == u'name'
-                          and self.parent_class == u'SAScollimation'):
-                        self.collimation.name = data_point
-                    elif (key == u'shape'
-                          and self.parent_class == u'SASaperture'):
-                        self.aperture.shape = data_point
-                    elif (key == u'x_gap'
-                          and self.parent_class == u'SASaperture'):
-                        self.aperture.size.x = data_point
-                    elif (key == u'y_gap'
-                          and self.parent_class == u'SASaperture'):
-                        self.aperture.size.y = data_point
-
+                    # Detector
+                    elif self.parent_class == u'SASdetector':
+                        self.process_detector(data_point, key, unit)
+                    # Collimation
+                    elif self.parent_class == u'SAScollimation':
+                        self.process_collimation(data_point, key, unit)
+                    # Aperture
+                    elif self.parent_class == u'SASaperture':
+                        self.process_aperture(data_point, key)
                     # Process Information
-                    elif (key == u'Title'
-                          and self.parent_class == u'SASprocess'): # CanSAS 2.0
-                        self.process.name = data_point
-                    elif (key == u'name'
-                          and self.parent_class == u'SASprocess'): # NXcanSAS
-                        self.process.name = data_point
-                    elif (key == u'description'
-                          and self.parent_class == u'SASprocess'):
-                        self.process.description = data_point
-                    elif key == u'date' and self.parent_class == u'SASprocess':
-                        self.process.date = data_point
-                    elif key == u'term' and self.parent_class == u'SASprocess':
-                        self.process.term = data_point
-                    elif self.parent_class == u'SASprocess':
-                        self.process.notes.append(data_point)
-
+                    elif self.parent_class == u'SASprocess': # CanSAS 2.0
+                        self.process_process(data_point, key)
                     # Source
-                    elif (key == u'wavelength'
-                          and self.parent_class == u'SASdata'):
-                        self.current_datainfo.source.wavelength = data_point
-                        self.current_datainfo.source.wavelength_unit = unit
-                    elif (key == u'incident_wavelength'
-                          and self.parent_class == 'SASsource'):
-                        self.current_datainfo.source.wavelength = data_point
-                        self.current_datainfo.source.wavelength_unit = unit
-                    elif (key == u'wavelength_max'
-                          and self.parent_class == u'SASsource'):
-                        self.current_datainfo.source.wavelength_max = data_point
-                        self.current_datainfo.source.wavelength_max_unit = unit
-                    elif (key == u'wavelength_min'
-                          and self.parent_class == u'SASsource'):
-                        self.current_datainfo.source.wavelength_min = data_point
-                        self.current_datainfo.source.wavelength_min_unit = unit
-                    elif (key == u'incident_wavelength_spread'
-                          and self.parent_class == u'SASsource'):
-                        self.current_datainfo.source.wavelength_spread = \
-                            data_point
-                        self.current_datainfo.source.wavelength_spread_unit = \
-                            unit
-                    elif (key == u'beam_size_x'
-                          and self.parent_class == u'SASsource'):
-                        self.current_datainfo.source.beam_size.x = data_point
-                        self.current_datainfo.source.beam_size_unit = unit
-                    elif (key == u'beam_size_y'
-                          and self.parent_class == u'SASsource'):
-                        self.current_datainfo.source.beam_size.y = data_point
-                        self.current_datainfo.source.beam_size_unit = unit
-                    elif (key == u'beam_shape'
-                          and self.parent_class == u'SASsource'):
-                        self.current_datainfo.source.beam_shape = data_point
-                    elif (key == u'radiation'
-                          and self.parent_class == u'SASsource'):
-                        self.current_datainfo.source.radiation = data_point
-                    elif (key == u'transmission'
-                          and self.parent_class == u'SASdata'):
-                        self.current_datainfo.sample.transmission = data_point
-
+                    elif self.parent_class == u'SASsource':
+                        self.process_source(data_point, key, unit)
                     # Everything else goes in meta_data
+                    elif self.parent_class == u'SASdata':
+                        if isinstance(self.current_dataset, plottable_2D):
+                            self.process_2d_data_object(data_set, key, unit)
+                        else:
+                            self.process_1d_data_object(data_set, key, unit)
+
+                        break
+                    elif self.parent_class == u'SAStransmission_spectrum':
+                        self.process_trans_spectrum(data_set, key)
+                        break
                     else:
                         new_key = self._create_unique_key(
                             self.current_datainfo.meta_data, key)
@@ -412,6 +228,251 @@ class Reader(FileReader):
             else:
                 # I don't know if this reachable code
                 self.errors.add("ShouldNeverHappenException")
+
+    def process_1d_data_object(self, data_set, key, unit):
+        """
+        SASdata processor method for 1d data items
+        :param data_set: data from HDF5 file
+        :param key: canSAS_class attribute
+        :param unit: unit attribute
+        """
+        if key == self.i_name:
+            self.current_dataset.y = data_set.flatten()
+            self.current_dataset.yaxis("Intensity", unit)
+        elif key == self.i_uncertainties_name:
+            self.current_dataset.dy = data_set.flatten()
+        elif key in self.q_names:
+            self.current_dataset.xaxis("Q", unit)
+            self.current_dataset.x = data_set.flatten()
+        elif key in self.q_resolution_names:
+            if (len(self.q_resolution_names) > 1
+                    and np.where(self.q_resolution_names == key)[0] == 0):
+                self.current_dataset.dxw = data_set.flatten()
+            elif (len(self.q_resolution_names) > 1
+                  and np.where(self.q_resolution_names == key)[0] == 1):
+                self.current_dataset.dxl = data_set.flatten()
+            else:
+                self.current_dataset.dx = data_set.flatten()
+        elif key in self.q_uncertainty_names:
+            if (len(self.q_uncertainty_names) > 1
+                    and np.where(self.q_uncertainty_names == key)[0] == 0):
+                self.current_dataset.dxw = data_set.flatten()
+            elif (len(self.q_uncertainty_names) > 1
+                  and np.where(self.q_uncertainty_names == key)[0] == 1):
+                self.current_dataset.dxl = data_set.flatten()
+            else:
+                self.current_dataset.dx = data_set.flatten()
+        elif key == self.mask_name:
+            self.current_dataset.mask = data_set.flatten()
+        elif key == u'wavelength':
+            self.current_datainfo.source.wavelength = data_set[0]
+            self.current_datainfo.source.wavelength_unit = unit
+
+    def process_2d_data_object(self, data_set, key, unit):
+        if key == self.i_name:
+            self.current_dataset.data = data_set
+            self.current_dataset.zaxis("Intensity", unit)
+        elif key == self.i_uncertainties_name:
+            self.current_dataset.err_data = data_set.flatten()
+        elif key in self.q_names:
+            self.current_dataset.xaxis("Q_x", unit)
+            self.current_dataset.yaxis("Q_y", unit)
+            if self.q_names[0] == self.q_names[1]:
+                # All q data in a single array
+                self.current_dataset.qx_data = data_set[0]
+                self.current_dataset.qy_data = data_set[1]
+            elif self.q_names.index(key) == 0:
+                self.current_dataset.qx_data = data_set
+            elif self.q_names.index(key) == 1:
+                self.current_dataset.qy_data = data_set
+        elif key in self.q_uncertainty_names or key in self.q_resolution_names:
+            if ((self.q_uncertainty_names[0] == self.q_uncertainty_names[1]) or
+                    (self.q_resolution_names[0] == self.q_resolution_names[1])):
+                # All q data in a single array
+                self.current_dataset.dqx_data = data_set[0].flatten()
+                self.current_dataset.dqy_data = data_set[1].flatten()
+            elif (self.q_uncertainty_names.index(key) == 0 or
+                  self.q_resolution_names.index(key) == 0):
+                self.current_dataset.dqx_data = data_set.flatten()
+            elif (self.q_uncertainty_names.index(key) == 1 or
+                  self.q_resolution_names.index(key) == 1):
+                self.current_dataset.dqy_data = data_set.flatten()
+                self.current_dataset.yaxis("Q_y", unit)
+        elif key == self.mask_name:
+            self.current_dataset.mask = data_set.flatten()
+        elif key == u'Qy':
+            self.current_dataset.yaxis("Q_y", unit)
+            self.current_dataset.qy_data = data_set.flatten()
+        elif key == u'Qydev':
+            self.current_dataset.dqy_data = data_set.flatten()
+        elif key == u'Qx':
+            self.current_dataset.xaxis("Q_x", unit)
+            self.current_dataset.qx_data = data_set.flatten()
+        elif key == u'Qxdev':
+            self.current_dataset.dqx_data = data_set.flatten()
+
+    def process_trans_spectrum(self, data_set, key):
+        """
+        SAStransmission_spectrum processor
+        :param data_set: data from HDF5 file
+        :param key: canSAS_class attribute
+        """
+        if key == u'T':
+            self.trans_spectrum.transmission = data_set.flatten()
+        elif key == u'Tdev':
+            self.trans_spectrum.transmission_deviation = data_set.flatten()
+        elif key == u'lambda':
+            self.trans_spectrum.wavelength = data_set.flatten()
+
+    def process_sample(self, data_point, key):
+        """
+        SASsample processor
+        :param data_point: Single point from an HDF5 data file
+        :param key: class name data_point was taken from
+        """
+        if key == u'Title':
+            self.current_datainfo.sample.name = data_point
+        elif key == u'name':
+            self.current_datainfo.sample.name = data_point
+        elif key == u'ID':
+            self.current_datainfo.sample.name = data_point
+        elif key == u'thickness':
+            self.current_datainfo.sample.thickness = data_point
+        elif key == u'temperature':
+            self.current_datainfo.sample.temperature = data_point
+        elif key == u'transmission':
+            self.current_datainfo.sample.transmission = data_point
+        elif key == u'x_position':
+            self.current_datainfo.sample.position.x = data_point
+        elif key == u'y_position':
+            self.current_datainfo.sample.position.y = data_point
+        elif key == u'pitch':
+            self.current_datainfo.sample.orientation.x = data_point
+        elif key == u'yaw':
+            self.current_datainfo.sample.orientation.y = data_point
+        elif key == u'roll':
+            self.current_datainfo.sample.orientation.z = data_point
+        elif key == u'details':
+            self.current_datainfo.sample.details.append(data_point)
+
+    def process_detector(self, data_point, key, unit):
+        """
+        SASdetector processor
+        :param data_point: Single point from an HDF5 data file
+        :param key: class name data_point was taken from
+        :param unit: unit attribute from data set
+        """
+        if key == u'name':
+            self.detector.name = data_point
+        elif key == u'SDD':
+            self.detector.distance = float(data_point)
+            self.detector.distance_unit = unit
+        elif key == u'slit_length':
+            self.detector.slit_length = float(data_point)
+            self.detector.slit_length_unit = unit
+        elif key == u'x_position':
+            self.detector.offset.x = float(data_point)
+            self.detector.offset_unit = unit
+        elif key == u'y_position':
+            self.detector.offset.y = float(data_point)
+            self.detector.offset_unit = unit
+        elif key == u'pitch':
+            self.detector.orientation.x = float(data_point)
+            self.detector.orientation_unit = unit
+        elif key == u'roll':
+            self.detector.orientation.z = float(data_point)
+            self.detector.orientation_unit = unit
+        elif key == u'yaw':
+            self.detector.orientation.y = float(data_point)
+            self.detector.orientation_unit = unit
+        elif key == u'beam_center_x':
+            self.detector.beam_center.x = float(data_point)
+            self.detector.beam_center_unit = unit
+        elif key == u'beam_center_y':
+            self.detector.beam_center.y = float(data_point)
+            self.detector.beam_center_unit = unit
+        elif key == u'x_pixel_size':
+            self.detector.pixel_size.x = float(data_point)
+            self.detector.pixel_size_unit = unit
+        elif key == u'y_pixel_size':
+            self.detector.pixel_size.y = float(data_point)
+            self.detector.pixel_size_unit = unit
+
+    def process_collimation(self, data_point, key, unit):
+        """
+        SAScollimation processor
+        :param data_point: Single point from an HDF5 data file
+        :param key: class name data_point was taken from
+        :param unit: unit attribute from data set
+        """
+        if key == u'distance':
+            self.collimation.length = data_point
+            self.collimation.length_unit = unit
+        elif key == u'name':
+            self.collimation.name = data_point
+
+    def process_aperture(self, data_point, key):
+        """
+        SASaperture processor
+        :param data_point: Single point from an HDF5 data file
+        :param key: class name data_point was taken from
+        """
+        if key == u'shape':
+            self.aperture.shape = data_point
+        elif key == u'x_gap':
+            self.aperture.size.x = data_point
+        elif key == u'y_gap':
+            self.aperture.size.y = data_point
+
+    def process_source(self, data_point, key, unit):
+        """
+        SASsource processor
+        :param data_point: Single point from an HDF5 data file
+        :param key: class name data_point was taken from
+        :param unit: unit attribute from data set
+        """
+        if key == u'incident_wavelength':
+            self.current_datainfo.source.wavelength = data_point
+            self.current_datainfo.source.wavelength_unit = unit
+        elif key == u'wavelength_max':
+            self.current_datainfo.source.wavelength_max = data_point
+            self.current_datainfo.source.wavelength_max_unit = unit
+        elif key == u'wavelength_min':
+            self.current_datainfo.source.wavelength_min = data_point
+            self.current_datainfo.source.wavelength_min_unit = unit
+        elif key == u'incident_wavelength_spread':
+            self.current_datainfo.source.wavelength_spread = data_point
+            self.current_datainfo.source.wavelength_spread_unit = unit
+        elif key == u'beam_size_x':
+            self.current_datainfo.source.beam_size.x = data_point
+            self.current_datainfo.source.beam_size_unit = unit
+        elif key == u'beam_size_y':
+            self.current_datainfo.source.beam_size.y = data_point
+            self.current_datainfo.source.beam_size_unit = unit
+        elif key == u'beam_shape':
+            self.current_datainfo.source.beam_shape = data_point
+        elif key == u'radiation':
+            self.current_datainfo.source.radiation = data_point
+
+    def process_process(self, data_point, key):
+        """
+        SASprocess processor
+        :param data_point: Single point from an HDF5 data file
+        :param key: class name data_point was taken from
+        """
+        term_match = re.compile(u'^term[0-9]+$')
+        if key == u'Title':  # CanSAS 2.0
+            self.process.name = data_point
+        elif key == u'name':  # NXcanSAS
+            self.process.name = data_point
+        elif key == u'description':
+            self.process.description = data_point
+        elif key == u'date':
+            self.process.date = data_point
+        elif term_match.match(key):
+            self.process.term.append(data_point)
+        else:
+            self.process.notes.append(data_point)
 
     def add_intermediate(self):
         """
@@ -453,13 +514,9 @@ class Reader(FileReader):
         if len(self.current_datainfo.trans_spectrum) > 0:
             spectrum_list = []
             for spectrum in self.current_datainfo.trans_spectrum:
-                spectrum.transmission = np.delete(spectrum.transmission, [0])
                 spectrum.transmission = spectrum.transmission.astype(np.float64)
-                spectrum.transmission_deviation = np.delete(
-                    spectrum.transmission_deviation, [0])
                 spectrum.transmission_deviation = \
                     spectrum.transmission_deviation.astype(np.float64)
-                spectrum.wavelength = np.delete(spectrum.wavelength, [0])
                 spectrum.wavelength = spectrum.wavelength.astype(np.float64)
                 if len(spectrum.transmission) > 0:
                     spectrum_list.append(spectrum)
@@ -491,9 +548,23 @@ class Reader(FileReader):
 
             if dataset.data.ndim == 2:
                 (n_rows, n_cols) = dataset.data.shape
-                dataset.y_bins = dataset.qy_data[0::n_cols]
-                dataset.x_bins = dataset.qx_data[:n_cols]
+                flat_qy = dataset.qy_data[0::n_cols].flatten()
+                # For 2D arrays of Qx and Qy, the Q value should be constant
+                # along each row -OR- each column. The direction is not
+                # specified in the NXcanSAS standard.
+                if flat_qy[0] == flat_qy[1]:
+                    flat_qy = np.transpose(dataset.qy_data)[0::n_cols].flatten()
+                dataset.y_bins = np.unique(flat_qy)
+                flat_qx = dataset.qx_data[0::n_rows].flatten()
+                # For 2D arrays of Qx and Qy, the Q value should be constant
+                # along each row -OR- each column. The direction is not
+                # specified in the NXcanSAS standard.
+                if flat_qx[0] == flat_qx[1]:
+                    flat_qx = np.transpose(dataset.qx_data)[0::n_rows].flatten()
+                dataset.x_bins = np.unique(flat_qx)
                 dataset.data = dataset.data.flatten()
+                dataset.qx_data = dataset.qx_data.flatten()
+                dataset.qy_data = dataset.qy_data.flatten()
             self.current_dataset = dataset
             self.send_to_output()
 
@@ -516,8 +587,7 @@ class Reader(FileReader):
         self.data2d = []
         self.current_datainfo = DataInfo()
 
-
-    def _initialize_new_data_set(self, parent_list=None):
+    def _initialize_new_data_set(self, value=None):
         """
         A private class method to generate a new 1D or 2D data object based on
         the type of data within the set. Outside methods should call
@@ -525,37 +595,81 @@ class Reader(FileReader):
 
         :param parent_list: List of names of parent elements
         """
-
-        if parent_list is None:
-            parent_list = []
-        if self._find_intermediate(parent_list, "Qx"):
+        if self._is2d(value):
             self.current_dataset = plottable_2D()
         else:
             x = np.array(0)
             y = np.array(0)
             self.current_dataset = plottable_1D(x, y)
         self.current_datainfo.filename = self.raw_data.filename
+        self.mask_name = u''
+        self.i_name = u''
+        self.i_node = u''
+        self.i_uncertainties_name = u''
+        self.q_names = []
+        self.q_uncertainty_names = []
+        self.q_resolution_names = []
 
-    def _find_intermediate(self, parent_list, basename=""):
+    @staticmethod
+    def check_is_list_or_array(iterable):
+        try:
+            iter(iterable)
+            if (not isinstance(iterable, np.ndarray) and not isinstance(
+                    iterable, list)) or (isinstance(iterable, basestring)):
+                raise TypeError
+        except TypeError:
+            iterable = iterable.split(",")
+        return iterable
+
+    def _find_data_attributes(self, value):
         """
-        A private class used to find an entry by either using a direct key or
-        knowing the approximate basename.
+        A class to find the indices for Q, the name of the Qdev and Idev, and
+        the name of the mask.
+        :param value: SASdata/NXdata HDF5 Group
+        """
+        attrs = value.attrs
+        signal = attrs.get("signal", "I")
+        i_axes = attrs.get("I_axes", ["Q"])
+        q_indices = attrs.get("Q_indices", [0])
+        q_indices = map(int, self.check_is_list_or_array(q_indices))
+        i_axes = self.check_is_list_or_array(i_axes)
+        keys = value.keys()
+        self.mask_name = attrs.get("mask")
+        for val in q_indices:
+            self.q_names.append(i_axes[val])
+        self.i_name = signal
+        self.i_node = value.get(self.i_name)
+        for item in self.q_names:
+            if item in keys:
+                q_vals = value.get(item)
+                if q_vals.attrs.get("uncertainties") is not None:
+                    self.q_uncertainty_names = q_vals.attrs.get("uncertainties")
+                elif q_vals.attrs.get("uncertainty") is not None:
+                    self.q_uncertainty_names = q_vals.attrs.get("uncertainty")
+                if isinstance(self.q_uncertainty_names, basestring):
+                    self.q_uncertainty_names = self.q_uncertainty_names.split(",")
+                if q_vals.attrs.get("resolutions") is not None:
+                    self.q_resolution_names = q_vals.attrs.get("resolutions")
+                if isinstance(self.q_resolution_names, basestring):
+                    self.q_resolution_names = self.q_resolution_names.split(",")
+        if self.i_name in keys:
+            i_vals = value.get(self.i_name)
+            self.i_uncertainties_name = i_vals.attrs.get("uncertainties")
+            if self.i_uncertainties_name is None:
+                self.i_uncertainties_name = i_vals.attrs.get("uncertainty")
+
+    def _is2d(self, value, basename="I"):
+        """
+        A private class to determine if the data set is 1d or 2d.
 
         :param parent_list: List of parents nodes in the HDF5 file
         :param basename: Approximate name of an entry to search for
-        :return:
+        :return: True if 2D, otherwise false
         """
 
-        entry = False
-        key_prog = re.compile(basename)
-        top = self.raw_data
-        for parent in parent_list:
-            top = top.get(parent)
-        for key in top.keys():
-            if key_prog.match(key):
-                entry = True
-                break
-        return entry
+        vals = value.get(basename)
+        return (vals is not None and vals.shape is not None
+                and len(vals.shape) != 1)
 
     def _create_unique_key(self, dictionary, name, numb=0):
         """
@@ -584,9 +698,4 @@ class Reader(FileReader):
         unit = h5attr(value, u'units')
         if unit is None:
             unit = h5attr(value, u'unit')
-        # Convert the unit formats
-        if unit == "1/A":
-            unit = "A^{-1}"
-        elif unit == "1/cm":
-            unit = "cm^{-1}"
         return unit

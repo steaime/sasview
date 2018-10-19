@@ -265,10 +265,10 @@ atlas_dlls = dll_check(numpy_path, ['numpy-atlas'])
 mkl_path = os.path.join(python_root, 'Library', 'bin')
 mkl_dlls = dll_check(mkl_path, ['mkl_core', 'mkl_def', 'libiomp5md'])
 
+if mkl_dlls:
+    data_files.append(('.', mkl_dlls))
 if atlas_dlls:
     data_files.append(('.', atlas_dlls))
-elif mkl_dlls:
-    data_files.append(('.', mkl_dlls))
 
 if is_64bits:
     msvcrtdll = glob(r"C:\Program Files\Microsoft Visual Studio 9.0\VC\redist\x86\Microsoft.VC90.CRT\*.*")
@@ -286,6 +286,7 @@ if msvcrtdll:
 packages = [
     'matplotlib', 'scipy', 'encodings', 'comtypes', 'h5py',
     'win32com', 'xhtml2pdf', 'bumps', 'sasmodels', 'sas',
+    'pkg_resources'
     ]
 packages.extend([
     'reportlab',

@@ -45,6 +45,7 @@ from sas.sasgui.guiframe.data_processor import GridFrame
 from sas.sasgui.guiframe.events import EVT_NEW_BATCH
 from sas.sasgui.guiframe.CategoryManager import CategoryManager
 from sas.sascalc.dataloader.loader import Loader
+from sas.sascalc.file_converter.nxcansas_writer import NXcanSASWriter
 from sas.sasgui.guiframe.proxy import Connection
 
 logger = logging.getLogger(__name__)
@@ -1275,13 +1276,26 @@ class ViewerFrame(PARENT_FRAME):
         self._help_menu = wx.Menu()
 
         wx_id = wx.NewId()
-        self._help_menu.Append(wx_id, '&Documentation', '')
+        self._help_menu.Append(wx_id, '&Documentation', 'Help documentation for SasView')
         wx.EVT_MENU(self, wx_id, self._onSphinxDocs)
 
         if config._do_tutorial and (IS_WIN or sys.platform == 'darwin'):
             wx_id = wx.NewId()
-            self._help_menu.Append(wx_id, '&Tutorial', 'Software tutorial')
+            # Pluralised both occurences of 'Tutorial' in the line below
+            # S King, Sep 2018
+            self._help_menu.Append(wx_id, '&Tutorials', 'Tutorials on how to use SasView')
             wx.EVT_MENU(self, wx_id, self._onTutorial)
+
+        if config.marketplace_url:
+            wx_id = wx.NewId()
+            self._help_menu.Append(wx_id, '&Model marketplace', 'Plug-in fitting models for SasView')
+            wx.EVT_MENU(self, wx_id, self._on_marketplace_click)
+
+        if config._do_release:
+            wx_id = wx.NewId()
+            self._help_menu.Append(wx_id, '&Release notes',
+                                   'SasView release notes and known issues')
+            wx.EVT_MENU(self, wx_id, self._onRelease)
 
         if config._do_acknowledge:
             wx_id = wx.NewId()
@@ -1292,13 +1306,8 @@ class ViewerFrame(PARENT_FRAME):
         if config._do_aboutbox:
             logger.info("Doing help menu")
             wx_id = wx.NewId()
-            self._help_menu.Append(wx_id, '&About', 'Software information')
+            self._help_menu.Append(wx_id, '&About', 'Information about SasView')
             wx.EVT_MENU(self, wx_id, self._onAbout)
-
-        if config.marketplace_url:
-            wx_id = wx.NewId()
-            self._help_menu.Append(wx_id, '&Model marketplace', '')
-            wx.EVT_MENU(self, wx_id, self._on_marketplace_click)
 
         # Checking for updates
         wx_id = wx.NewId()
@@ -2136,6 +2145,20 @@ class ViewerFrame(PARENT_FRAME):
             dialog = AboutBox.DialogAbout(None, -1, "")
             dialog.ShowModal()
 
+    def _onRelease(self, evt):
+        """
+        Pop up the release notes
+
+        :param evt: menu event
+
+        """
+        # S King, Sep 2018
+
+        from documentation_window import DocumentationWindow
+        _TreeLocation = "user/release.html"
+        DocumentationWindow(self, -1, _TreeLocation, "",
+                            "SasView Documentation")
+
     def _onTutorial(self, evt):
         """
         Pop up the tutorial dialog
@@ -2143,44 +2166,19 @@ class ViewerFrame(PARENT_FRAME):
         :param evt: menu event
 
         """
-        if config._do_tutorial:
-            path = config.TUTORIAL_PATH
-            if IS_WIN:
-                try:
-                    from sas.sasgui.guiframe.pdfview import PDFFrame
-                    dialog = PDFFrame(None, -1, "Tutorial", path)
-                    # put icon
-                    self.put_icon(dialog)
-                    dialog.Show(True)
-                except:
-                    logger.error("Error in _onTutorial: %s" % sys.exc_value)
-                    try:
-                        # Try an alternate method
-                        logger.error(
-                            "Could not open the tutorial pdf, trying xhtml2pdf")
-                        from xhtml2pdf import pisa
-                        pisa.startViewer(path)
-                    except:
-                        logger.error(
-                            "Could not open the tutorial pdf with xhtml2pdf")
-                        msg = "This feature requires 'PDF Viewer'\n"
-                        wx.MessageBox(msg, 'Error')
-            else:
-                try:
-                    command = "open '%s'" % path
-                    os.system(command)
-                except:
-                    try:
-                        # Try an alternate method
-                        logger.error(
-                            "Could not open the tutorial pdf, trying xhtml2pdf")
-                        from xhtml2pdf import pisa
-                        pisa.startViewer(path)
-                    except:
-                        logger.error(
-                            "Could not open the tutorial pdf with xhtml2pdf")
-                        msg = "This feature requires the Preview application\n"
-                        wx.MessageBox(msg, 'Error')
+        # Action changed from that in 2.x/3.x/4.0.x/4.1.x
+        # Help >> Tutorial used to bring up a pdf of the
+        # original 2.x tutorial.
+        # Code below, implemented from 4.2.0, redirects
+        # action to the Tutorials page of the help 
+        # documentation to give access to all available
+        # tutorials
+        # S King, Sep 2018
+
+        from documentation_window import DocumentationWindow
+        _TreeLocation = "user/tutorial.html"
+        DocumentationWindow(self, -1, _TreeLocation, "",
+                            "SasView Documentation")
 
     def _onSphinxDocs(self, evt):
         """
@@ -2421,8 +2419,9 @@ class ViewerFrame(PARENT_FRAME):
         """
         default_name = fname
         wildcard = "Text files (*.txt)|*.txt|"\
-                    "CanSAS 1D files(*.xml)|*.xml"
-        path = None
+                    "CanSAS 1D files (*.xml)|*.xml|"\
+                     "NXcanSAS files (*.h5)|*.h5|"
+        options = [".txt", ".xml",".h5"]
         dlg = wx.FileDialog(self, "Choose a file",
                             self._default_save_location,
                             default_name, wildcard, wx.SAVE)
@@ -2432,27 +2431,25 @@ class ViewerFrame(PARENT_FRAME):
             # ext_num = 0 for .txt, ext_num = 1 for .xml
             # This is MAC Fix
             ext_num = dlg.GetFilterIndex()
-            if ext_num == 0:
-                ext_format = '.txt'
-            else:
-                ext_format = '.xml'
+
+            ext_format = options[ext_num]
             path = os.path.splitext(path)[0] + ext_format
             mypath = os.path.basename(path)
+            fName = os.path.splitext(path)[0] + ext_format
 
-            # Instantiate a loader
-            loader = Loader()
-            ext_format = ".txt"
-            if os.path.splitext(mypath)[1].lower() == ext_format:
+            if os.path.splitext(mypath)[1].lower() == options[0]:
                 # Make sure the ext included in the file name
                 # especially on MAC
-                fName = os.path.splitext(path)[0] + ext_format
                 self._onsaveTXT(data, fName)
-            ext_format = ".xml"
-            if os.path.splitext(mypath)[1].lower() == ext_format:
+            elif os.path.splitext(mypath)[1].lower() == options[1]:
                 # Make sure the ext included in the file name
                 # especially on MAC
-                fName = os.path.splitext(path)[0] + ext_format
+                # Instantiate a loader
+                loader = Loader()
                 loader.save(fName, data, ext_format)
+            elif os.path.splitext(mypath)[1].lower() == options[2]:
+                nxcansaswriter = NXcanSASWriter()
+                nxcansaswriter.write([data], fName)
             try:
                 self._default_save_location = os.path.dirname(path)
             except:
@@ -2479,11 +2476,11 @@ class ViewerFrame(PARENT_FRAME):
                     has_errors = False
             if has_errors:
                 if data.dx is not None and data.dx != []:
-                    out.write("<X>   <Y>   <dY>   <dX>\n")
+                    out.write("<X>\t<Y>\t<dY>\t<dX>\n")
                 else:
-                    out.write("<X>   <Y>   <dY>\n")
+                    out.write("<X>\t<Y>\t<dY>\n")
             else:
-                out.write("<X>   <Y>\n")
+                out.write("<X>\t<Y>\n")
 
             for i in range(len(data.x)):
                 if has_errors:
@@ -2527,7 +2524,9 @@ class ViewerFrame(PARENT_FRAME):
         if data.dy is not None:
             text += 'dY_min = %s:  dY_max = %s\n' % (min(data.dy), max(data.dy))
         text += '\nData Points:\n'
-        x_st = "X"
+        text += "<index> \t<X> \t<Y> \t<dY> "
+        text += "\t<dX>\n" if(data.dxl is not None and
+                              data.dxw is not None) else "\t<dXl> \t<dXw>\n"
         for index in range(len(data.x)):
             if data.dy is not None and len(data.dy) > index:
                 dy_val = data.dy[index]
@@ -2538,16 +2537,10 @@ class ViewerFrame(PARENT_FRAME):
             else:
                 dx_val = 0.0
             if data.dxl is not None and len(data.dxl) > index:
-                if index == 0:
-                    x_st = "Xl"
                 dx_val = data.dxl[index]
-            elif data.dxw is not None and len(data.dxw) > index:
-                if index == 0:
-                    x_st = "Xw"
-                dx_val = data.dxw[index]
+                if data.dxw is not None and len(data.dxw) > index:
+                    dx_val = "%s \t%s" % (data.dxl[index], data.dxw[index])
 
-            if index == 0:
-                text += "<index> \t<X> \t<Y> \t<dY> \t<d%s>\n" % x_st
             text += "%s \t%s \t%s \t%s \t%s\n" % (index,
                                                   data.x[index],
                                                   data.y[index],
@@ -2564,7 +2557,8 @@ class ViewerFrame(PARENT_FRAME):
         Save data2d dialog
         """
         default_name = fname
-        wildcard = "IGOR/DAT 2D file in Q_map (*.dat)|*.DAT"
+        wildcard = "IGOR/DAT 2D file in Q_map (*.dat)|*.DAT|"\
+                   "NXcanSAS files (*.h5)|*.h5|"
         dlg = wx.FileDialog(self, "Choose a file",
                             self._default_save_location,
                             default_name, wildcard, wx.SAVE)
@@ -2576,6 +2570,8 @@ class ViewerFrame(PARENT_FRAME):
             ext_num = dlg.GetFilterIndex()
             if ext_num == 0:
                 ext_format = '.dat'
+            elif ext_num == 1:
+                ext_format = '.h5'
             else:
                 ext_format = ''
             path = os.path.splitext(path)[0] + ext_format
@@ -2583,13 +2579,17 @@ class ViewerFrame(PARENT_FRAME):
 
             # Instantiate a loader
             loader = Loader()
-
-            ext_format = ".dat"
-            if os.path.splitext(mypath)[1].lower() == ext_format:
+            if os.path.splitext(mypath)[1].lower() == '.dat':
                 # Make sure the ext included in the file name
                 # especially on MAC
                 fileName = os.path.splitext(path)[0] + ext_format
                 loader.save(fileName, data, ext_format)
+            elif os.path.splitext(mypath)[1].lower() == '.h5':
+                # Make sure the ext included in the file name
+                # especially on MAC
+                fileName = os.path.splitext(path)[0] + ext_format
+                nxcansaswriter = NXcanSASWriter()
+                nxcansaswriter.write([data], fileName)
             try:
                 self._default_save_location = os.path.dirname(path)
             except:
