@@ -35,7 +35,7 @@ class SasView(object):
     """
     Main class for running the SasView application
     """
-    def __init__(self):
+    def __init__(self, threaded=False):
         """
         """
         logger = logging.getLogger(__name__)
@@ -128,8 +128,9 @@ class SasView(object):
         self.gui.build_gui()
         # delete unused model folder
         self.gui.clean_plugin_models(PLUGIN_MODEL_DIR)
-        # Start the main loop
-        self.gui.MainLoop()
+        if not threaded:
+            # Start the main loop
+            self.gui.MainLoop()
 
     def check_sasmodels_compiler(self):
         """
@@ -263,7 +264,8 @@ def setup_sasmodels():
     if SAS_OPENCL and "SAS_OPENCL" not in os.environ:
         os.environ["SAS_OPENCL"] = SAS_OPENCL
 
-def run_gui():
+
+def run_gui(threaded=False):
     """
     __main__ method for loading and running SasView
     """
@@ -273,7 +275,8 @@ def run_gui():
     setup_mpl(backend='WXAgg')
     setup_sasmodels()
     setup_wx()
-    SasView()
+    app = SasView(threaded=threaded)
+    return app
 
 
 def run_cli():
