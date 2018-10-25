@@ -3,11 +3,12 @@
 """
 
 import os
-import sys
 import unittest
 import warnings
 import threading
+from time import sleep
 
+import sas.sasview.sasview as sasview
 from sas.sascalc.dataloader.loader import Loader
 from sas.sascalc.fit.pagestate import Reader as fit_state_reader
 from sas.sasgui.perspectives.invariant.invariant_state import Reader as invariant_reader
@@ -17,6 +18,8 @@ from sas.sasgui.perspectives.corfunc.corfunc_state import Reader as corfunc_read
 warnings.simplefilter("ignore")
 
 TEMP_FOLDER = "temp_folder"
+DATA_1D = "test_data" + os.path.sep + "data1D.h5"
+DATA_2D = "test_data" + os.path.sep + "data2D.h5"
 STATE_LOADERS = [fit_state_reader, invariant_reader, pr_reader, corfunc_reader]
 
 
@@ -28,20 +31,27 @@ class projects(unittest.TestCase):
         """
         self.addCleanup(self.remove_dir)
         self.loader = Loader()
-        self.data1d = self.loader.load("test_data/data1D.h5")
-        self.data2d = self.loader.load("test_data/data2D.h5")
-        self.sasviewThread = sasviewThread()
-        self.sasviewThread.start_local()
+        self.data1d = self.loader.load(DATA_1D)
+        self.data2d = self.loader.load(DATA_2D)
+        self.sasviewThread = sasviewThread(False)
         if not (os.path.isdir(TEMP_FOLDER)):
             os.makedirs(TEMP_FOLDER)
+        self.sasviewThread.lock.acquire()
+        self.sasviewThread.start_local()
+        while self.sasviewThread.frame is None:
+            sleep(0.05)
+        while self.sasviewThread.frame._data_panel is None:
+            sleep(0.05)
+        # TODO: Do we need the frame to be visible to perform operations?
+        while not self.sasviewThread.frame.IsShown():
+            sleep(2)
+        # self.sasviewThread.frame.get_data(DATA_1D)
+        # self.sasviewThread.frame.get_data(DATA_2D)
 
     def tearDown(self):
+        self.sasviewThread.lock.release()
+        self.sasviewThread.frame = None
         self.remove_dir()
-        if hasattr(self.sasviewThread, "isAlive"):
-            if self.sasviewThread.isAlive():
-                print("TODO: Close app directly")
-                self.app.gui.Close()
-                pass
 
     def remove_dir(self):
         if(os.path.isdir(TEMP_FOLDER)):
@@ -51,7 +61,8 @@ class projects(unittest.TestCase):
         """
         Test saving and loading a project with a single data set sent to fitting
         """
-        self.sasviewThread.join(5)
+        self.assertTrue(self.data1d is not None)
+        self.assertTrue(self.data2d is not None)
         self.assertTrue(1 == 1)
 
         # TODO: Send 1D to fitting, select model, save project, load project
@@ -67,28 +78,20 @@ class sasviewThread(threading.Thread):
 
     def __init__(self, autoStart=True):
         threading.Thread.__init__(self)
+        self.lock = threading.Lock()
+        self.lock.acquire()  # lock until variables are set
         self.setDaemon(1)
         self.start_orig = self.start
         self.start = self.start_local
         self.frame = None  # to be defined in self.run
-        self.lock = threading.Lock()
-        self.lock.acquire()  # lock until variables are set
         if autoStart:
             self.start()  # automatically start thread on init
-
-    def run(self):
-        import sas.sasview.sasview as sasview
-        app = sasview.run_gui()
-        self.frame = app.frame
-
-        # define frame and release lock
-        # The lock is used to make sure that SetData is defined.
         self.lock.release()
 
-        app.MainLoop()
+    def run(self):
+        app = sasview.run_gui(True)
+        self.frame = app.gui.frame
+        app.gui.MainLoop()
 
     def start_local(self):
         self.start_orig()
-        # After thread has started, wait until the lock is released
-        # before returning so that functions get defined.
-        self.lock.acquire()
