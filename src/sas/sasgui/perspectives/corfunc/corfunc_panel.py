@@ -10,9 +10,8 @@ from sas.sasgui.guiframe.panel_base import PanelBase
 from sas.sasgui.guiframe.utils import check_float
 from sas.sasgui.guiframe.dataFitting import Data1D
 from sas.sasgui.perspectives.invariant.invariant_widgets import OutputTextCtrl
-from sas.sasgui.perspectives.invariant.invariant_widgets import InvTextCtrl
 from sas.sasgui.perspectives.fitting.basepage import ModelTextCtrl
-from sas.sasgui.perspectives.corfunc.corfunc_state import CorfuncState
+from sas.sascalc.corfunc.corfunc_pagestate import CorfuncPageState
 import sas.sasgui.perspectives.corfunc.corfunc
 from sas.sascalc.corfunc.corfunc_calculator import CorfuncCalculator
 from sas.sasgui.guiframe.documentation_window import DocumentationWindow
@@ -38,7 +37,8 @@ else:
     PANEL_HEIGHT = 700
     FONT_VARIANT = 1
 
-class CorfuncPanel(ScrolledPanel,PanelBase):
+
+class CorfuncPanel(ScrolledPanel, PanelBase):
     window_name = "Correlation Function"
     window_caption = "Correlation Function"
     CENTER_PANE = True
@@ -92,11 +92,11 @@ class CorfuncPanel(ScrolledPanel,PanelBase):
         Set the state of the panel. If no state is provided, the panel will
         be set to the default state.
 
-        :param state: A CorfuncState object
+        :param state: A CorfuncPageState object
         :param data: A Data1D object
         """
         if state is None:
-            self.state = CorfuncState()
+            self.state = CorfuncPageState()
         else:
             self.state = state
         if data is not None:
@@ -124,22 +124,7 @@ class CorfuncPanel(ScrolledPanel,PanelBase):
         """
         Return the state of the panel
         """
-        state = CorfuncState()
-        state.set_saved_state('qmin_tcl', self.qmin)
-        state.set_saved_state('qmax1_tcl', self.qmax[0])
-        state.set_saved_state('qmax2_tcl', self.qmax[1])
-        state.set_saved_state('background_tcl', self.background)
-        state.outputs = self.extracted_params
-        if self._data is not None:
-            state.file = self._data.title
-            state.data = self._data
-        if self._extrapolated_data is not None:
-            state.is_extrapolated = True
-        if self._transformed_data is not None:
-            state.is_transformed = True
-            state.transform_type = self.transform_type
-        self.state = state
-
+        self.set_state(self.state, self._data)
         return self.state
 
     def onSetFocus(self, evt):
@@ -335,7 +320,7 @@ class CorfuncPanel(ScrolledPanel,PanelBase):
             default_save_location = self._manager.parent.get_save_location()
 
         dlg = wx.FileDialog(self, "Choose a file",
-                            default_save_location, \
+                            default_save_location,
                             self.window_caption, "*.crf", wx.SAVE)
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()

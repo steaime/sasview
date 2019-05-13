@@ -2,15 +2,10 @@ import time
 import sys
 import os
 import logging
-import sas.sascalc.dataloader
 from lxml import etree
 from sas.sascalc.dataloader.readers.cansas_reader import Reader as CansasReader
 from sas.sascalc.dataloader.readers.cansas_reader import get_content
-from sas.sasgui.guiframe.utils import format_number
-from sas.sasgui.guiframe.gui_style import GUIFRAME_ID
-from sas.sasgui.guiframe.dataFitting import Data1D
-from sas.sascalc.dataloader.data_info import Data1D as LoaderData1D
-from sas.sascalc.dataloader.loader import Loader
+from sas.sascalc.dataloader.data_info import Data1D
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +30,8 @@ output_list = [
     ['fill', "Filling Fraction: "]
 ]
 
-class CorfuncState(object):
+
+class CorfuncPageState(object):
     """
     Stores information about the state of CorfuncPanel
     """
@@ -114,8 +110,6 @@ class CorfuncState(object):
         """
         from xml.dom.minidom import getDOMImplementation
 
-        top_element = None
-        new_doc = None
         if doc is None:
             # Create a new XML document
             impl = getDOMImplementation()
@@ -195,7 +189,6 @@ class CorfuncState(object):
         else:
             return new_doc
 
-
     def fromXML(self, node):
         """
         Load corfunc states from a file
@@ -214,7 +207,7 @@ class CorfuncState(object):
                 try:
                     self.timestamp = (entry.get('epoch'))
                 except:
-                    msg = ("CorfuncState.fromXML: Could not read timestamp",
+                    msg = ("CorfuncPageState.fromXML: Could not read timestamp",
                         "\n{}").format(sys.exc_value)
                     logger.error(msg)
 
@@ -247,7 +240,6 @@ class CorfuncState(object):
                     parameter = get_content("ns:{}".format(item[0]), entry)
                     if parameter is not None:
                         self.outputs[item[0]] = float(parameter.text.strip())
-
 
 
 class Reader(CansasReader):
@@ -308,31 +300,31 @@ class Reader(CansasReader):
         else:
             return output
 
-    def write(self, filename, datainfo=None, state=None):
+    def write(self, filename, data_info=None, state=None):
         """
         Write the content of a Data1D as a CanSAS file.
 
         : param filename: Name of the file to write
         : param datainfo: Data1D object
-        : param state: CorfuncState object
+        : param state: CorfuncPageState object
         """
         # Prepare datainfo
-        if datainfo is None:
-            datainfo = Data1D(x=[], y=[])
-        elif not (isinstance(datainfo, Data1D) or isinstance(datainfo, LoaderData1D)):
+        if data_info is None:
+            data_info = Data1D(x=[], y=[])
+        elif not isinstance(data_info, Data1D):
             msg = ("The CanSAS writer expects a Data1D instance. {} was "
-                "provided").format(datainfo.__class__.__name__)
+                "provided").format(data_info.__class__.__name__)
             raise RuntimeError, msg
-        if datainfo.title is None or datainfo.title == '':
-            datainfo.title = datainfo.name
-        if datainfo.run_name is None or datainfo.run_name == '':
-            datainfo.run = [str(datainfo.name)]
-            datainfo.run_name[0] = datainfo.name
+        if data_info.title is None or data_info.title == '':
+            data_info.title = data_info.name
+        if data_info.run_name is None or data_info.run_name == '':
+            data_info.run = [str(data_info.name)]
+            data_info.run_name[0] = data_info.name
 
         # Create the XMl doc
-        doc, sasentry = self._to_xml_doc(datainfo)
+        doc, sas_entry = self._to_xml_doc(data_info)
         if state is not None:
-            doc = state.toXML(doc=doc, entry_node=sasentry)
+            doc = state.toXML(doc=doc, entry_node=sas_entry)
 
         # Write the XML doc to a file
         fd = open(filename, 'w')
@@ -340,25 +332,49 @@ class Reader(CansasReader):
         fd.close()
 
     def get_state(self):
-        return self.state
-
+        state = self.state
+        return get_state(state.qmin, state.qmax, state.background, state.data,
+                         state.extrapolated_data, state.transformed_data,
+                         state.transform_type)
 
     def _parse_state(self, entry):
         """
         Read state data from an XML node
 
         :param entry: The XML node to read from
-        :return: CorfuncState object
+        :return: CorfuncPageState object
         """
         state = None
         try:
             nodes = entry.xpath('ns:{}'.format(CORNODE_NAME),
-                namespaces={'ns': CANSAS_NS})
-            if nodes != []:
-                state = CorfuncState()
+                                namespaces={'ns': CANSAS_NS})
+            if nodes:
+                state = CorfuncPageState()
                 state.fromXML(nodes[0])
-        except:
-            msg = "XML document does not contain CorfuncState information\n{}"
-            msg.format(sys.exc_value)
+        except Exception as e:
+            msg = "XML document does not contain Corfunc information\n{}"
+            msg.format(e.message)
             logger.info(msg)
         return state
+
+
+def get_state(qmin, qmax, background, extracted_params, data, extrapolated_data,
+              transformed_data=None, transform_type=None):
+    """
+    Return the state of the panel
+    """
+    state = CorfuncPageState()
+    state.set_saved_state('qmin_tcl', qmin)
+    state.set_saved_state('qmax1_tcl', qmax[0])
+    state.set_saved_state('qmax2_tcl', qmax[1])
+    state.set_saved_state('background_tcl', background)
+    state.outputs = extracted_params
+    if data is not None:
+        state.file = data.title
+        state.data = data
+    if extrapolated_data is not None:
+        state.is_extrapolated = True
+    if transformed_data is not None:
+        state.is_transformed = True
+        state.transform_type = transform_type
+    return state
