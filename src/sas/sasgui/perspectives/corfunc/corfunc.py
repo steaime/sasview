@@ -14,12 +14,12 @@ from sas.sasgui.guiframe.gui_style import GUIFRAME_ID
 from sas.sasgui.perspectives.corfunc.corfunc_panel import CorfuncPanel
 from sas.sasgui.guiframe.dataFitting import Data1D
 from sas.sasgui.perspectives.pr.pr_widgets import DataDialog
-from sas.sasgui.perspectives.corfunc.corfunc_state import Reader
+from sas.sascalc.corfunc.corfunc_pagestate import Reader
 from sas.sascalc.dataloader.loader import Loader
-import sas.sascalc.dataloader
 from plot_labels import *
 
 logger = logging.getLogger(__name__)
+
 
 class Plugin(PluginBase):
     """
@@ -76,8 +76,6 @@ class Plugin(PluginBase):
             return [["Select data in corfunc",
                 "Send this data to the correlation function perspective",
                 self._on_select_data]]
-
-
 
     def set_state(self, state=None, datainfo=None):
         """

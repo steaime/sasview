@@ -141,7 +141,8 @@ class CorfuncPageState(object):
         # Timestamp
         element = new_doc.createElement("timestamp")
         # Pretty printed format
-        element.appendChild(new_doc.createTextNode(time.ctime(self.timestamp)))
+        element.appendChild(new_doc.createTextNode(
+            "{}".format(time.ctime(self.timestamp))))
         attr = new_doc.createAttribute("epoch")
         # Epoch value (used in self.fromXML)
         attr.nodeValue = str(self.timestamp)
@@ -206,10 +207,9 @@ class CorfuncPageState(object):
             if entry is not None and entry.get('epoch'):
                 try:
                     self.timestamp = (entry.get('epoch'))
-                except:
-                    msg = ("CorfuncPageState.fromXML: Could not read timestamp",
-                        "\n{}").format(sys.exc_value)
-                    logger.error(msg)
+                except Exception as e:
+                    msg = "CorfuncPageState.fromXML: Cannot read timestamp\n{}"
+                    logger.error(msg.format(e.message))
 
             # Parse current state
             entry = get_content('ns:state', node)
