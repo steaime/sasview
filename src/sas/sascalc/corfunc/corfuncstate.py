@@ -9,6 +9,7 @@ and running fits in wx, qt, and headless versions of SasView shares a common
 in-memory representation.
 """
 
+import sys
 from corfunc_pagestate import CorfuncPageState, Reader
 from corfunc_calculator import CorfuncCalculator
 
@@ -17,12 +18,11 @@ class CorfuncState(object):
 
     def __init__(self, crf_file):
         self.file = crf_file
-        self.reader = Reader()
+        self.reader = Reader(self._add_entry)
         self.data_set = self.reader.read(self.file)
-        self.calculator = CorfuncCalculator(self.data_set,
-                                            min(self.data_set.x),
-                                            max(self.data_set.x))
-        self._state = None
+        self.calculator = CorfuncCalculator(self.data_set)
+        if not self._state:
+            self._state = self.data_set.meta_data['corfunc']
 
     def _add_entry(self, state=None, datainfo=None, format=None):
         """
@@ -30,7 +30,7 @@ class CorfuncState(object):
         """
         # Note: datainfo is in state.data; format=.svs means reset fit panels
         if isinstance(state, CorfuncPageState):
-            self.state = state
+            self.set_state(state)
         else:
             # ignore empty fit info
             pass
@@ -59,9 +59,13 @@ class CorfuncState(object):
                         print("   ", item)
                 else:
                     print(attr, value)
-        _dump_attrs(self.state, label="Corfunc page")
+        _dump_attrs(self._state, label="Corfunc page")
 
 
 if __name__ == "__main__":
-    import sas.sascalc.fit.fitstate as fitstate
-    fitstate.bumps_cli()
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
+        state = CorfuncState(filename)
+        state.show()
+    else:
+        print("No file path supplied.")
