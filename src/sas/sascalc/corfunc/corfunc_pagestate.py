@@ -255,6 +255,7 @@ class Reader(CansasReader):
     ext = ['.crf', '.CRF', '.svs', '.SVS']
 
     def __init__(self, callback):
+        CansasReader.__init__(self)
         self.callback = callback
         self.state = None
 
