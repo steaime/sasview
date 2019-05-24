@@ -67,6 +67,7 @@ class CorfuncState(object):
 
 if __name__ == "__main__":
     # Usage: pass a file name as an argument
+    #   python corfuncstate.py <filename>
     if len(sys.argv) > 1:
         filename = sys.argv[1]
         try:
