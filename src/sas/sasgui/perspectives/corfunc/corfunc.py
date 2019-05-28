@@ -145,8 +145,8 @@ class Plugin(PluginBase):
                                                 id=self.data_id))
                     self.data_id = data.id
                     self.corfunc_panel.set_data(data)
-                except:
-                    msg = "Corfunc set_data: " + str(sys.exc_value)
+                except Exception as exc:
+                    msg = "Corfunc set_data: " + str(exc)
                     wx.PostEvent(self.parent, StatusEvent(status=msg,
                         info='error'))
 

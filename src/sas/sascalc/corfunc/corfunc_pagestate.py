@@ -69,7 +69,7 @@ class CorfuncPageState(object):
 
         if self.outputs != {} and self.outputs is not None:
             state += "\nOutputs:\n"
-            for key, value in self.outputs.iteritems():
+            for key, value in self.outputs.items():
                 name = output_list[key][1]
                 state += "{}: {}\n".format(name, str(value))
 
@@ -152,7 +152,7 @@ class CorfuncPageState(object):
         # Current state
         state = new_doc.createElement("state")
         top_element.appendChild(state)
-        for name, value in self.saved_state.iteritems():
+        for name, value in self.saved_state.items():
             element = new_doc.createElement(name)
             element.appendChild(new_doc.createTextNode(str(value)))
             state.appendChild(element)
@@ -175,7 +175,7 @@ class CorfuncPageState(object):
         if self.outputs != {} and self.outputs is not None:
             output = new_doc.createElement("output")
             top_element.appendChild(output)
-            for key, value in self.outputs.iteritems():
+            for key, value in self.outputs.items():
                 element = new_doc.createElement(key)
                 element.appendChild(new_doc.createTextNode(str(value)))
                 output.appendChild(element)
@@ -214,7 +214,7 @@ class CorfuncPageState(object):
             # Parse current state
             entry = get_content('ns:state', node)
             if entry is not None:
-                for item in DEFAULT_STATE.iterkeys():
+                for item in DEFAULT_STATE.keys():
                     input_field = get_content("ns:{}".format(item), entry)
                     if input_field is not None:
                         try:
@@ -275,7 +275,7 @@ class Reader(CansasReader):
             basename = os.path.basename(path)
             root, ext = os.path.splitext(basename)
             if not ext.lower() in self.ext:
-                raise IOError, "{} is not a supported file type".format(ext)
+                raise IOError("{} is not a supported file type".format(ext))
             tree = etree.parse(path, parser=etree.ETCompatXMLParser())
             root = tree.getroot()
             entry_list = root.xpath('/ns:SASroot/ns:SASentry',
@@ -291,7 +291,7 @@ class Reader(CansasReader):
         else:
             # File not found
             msg = "{} is not a valid file path or doesn't exist".format(path)
-            raise IOError, msg
+            raise IOError(msg)
 
         if len(output) == 0:
             return None
@@ -315,7 +315,7 @@ class Reader(CansasReader):
         elif not isinstance(data_info, Data1D):
             msg = ("The CanSAS writer expects a Data1D instance. {} was "
                 "provided").format(data_info.__class__.__name__)
-            raise RuntimeError, msg
+            raise RuntimeError(msg)
         if data_info.title is None or data_info.title == '':
             data_info.title = data_info.name
         if data_info.run_name is None or data_info.run_name == '':
@@ -352,9 +352,9 @@ class Reader(CansasReader):
             if nodes:
                 state = CorfuncPageState()
                 state.fromXML(nodes[0])
-        except Exception as e:
-            msg = "XML document does not contain Corfunc information\n{}"
-            msg.format(e.message)
+        except Exception as exc:
+            msg = "XML document does not contain CorfuncState information\n{}"
+            msg.format(exc)
             logger.info(msg)
         return state
 
