@@ -174,13 +174,14 @@ class Plugin(PluginBase):
                     continue
             _, extension = os.path.splitext(basename)
             if extension.lower() in EXTENSIONS:
-                log_msg = "Data Loader cannot "
-                log_msg += "load: {}\n".format(str(p_file))
-                log_msg += "Please try to open that file from \"open project\""
-                log_msg += "or \"open analysis\" menu."
-                logger.info(log_msg)
-                file_errors[basename] = [log_msg]
-                continue
+                pass
+                # log_msg = "Data Loader cannot "
+                # log_msg += "load: {}\n".format(str(p_file))
+                # log_msg += "Please try to open that file from \"open project\""
+                # log_msg += "or \"open analysis\" menu."
+                # logger.info(log_msg)
+                # file_errors[basename] = [log_msg]
+                # continue
             try:
                 message = "Loading {}...\n".format(p_file)
                 self.load_update(message=message, info="info")

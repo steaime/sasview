@@ -29,63 +29,67 @@ class Reader(CansasReader):
     Class to load ascii files (2, 3 or 4 columns).
     """
     # File type
-    type_name = "ASCII"
+    type_name = "SaveState"
     # Wildcards
-    type = ["ASCII files (*.txt)|*.txt",
-            "ASCII files (*.dat)|*.dat",
-            "ASCII files (*.abs)|*.abs",
-            "CSV files (*.csv)|*.csv"]
+    type = ["Save State (*.svs)|*.svs",
+            "Fit Saves (*.fitv)|*.fitv",
+            "P(r) Saves (*.prv)|*.prv",
+            "Inversion Saves (*.inv)|*.inv",
+            "Corfunc Saves (*.crf)|*.crf"]
     # List of allowed extensions
-    ext = ['.txt', '.dat', '.abs', '.csv']
+    ext = ['.svs', '.fitv', '.prv', '.inv', '.crf']
     # Flag to bypass extension check
-    allow_all = True
-    # data unless that is the only data
-    min_data_pts = 5
+    allow_all = False
 
     def __init__(self):
         CansasReader.__init__(self)
         self.fit_data = None
+        self.prv_data = None
+        self.inv_data = None
         self.cfr_data = None
 
     def get_file_contents(self):
         """
-        Get the contents of the file
-        """
-        super(Reader, self).get_file_contents()
-
-    def get_file_contents(self):
-        """
         Send the SASentry through each of the save state loaders
-        :param dom:
-        :param recurse:
         :return:
         """
+        self.data = CansasReader.get_file_contents(self)
+        print("save_state_reader invoked")
         self.load_file_and_schema(self.f_open.name)
-        for i, item in enumerate(SAVE_STATE_NODES):
+        for item in SAVE_STATE_NODES:
+            print(item)
             if self.xmldoc.xpath('ns:{}'.format(item),
                                  namespaces={'ns': CANSAS_NS}):
+                print("Loading {}".format(item))
                 self.fit_data = FitState(self.f_open.name)
                 self.cfr_data = CorfuncState(self.f_open.name)
 
-        if hasattr(self.fit_data, "show"):
-            print(self.fit_data.show())
-        if hasattr(self.cfr_data, "show"):
-            print(self.cfr_data.show())
+        if self.fit_data:
+            self.fit_data.show()
+            self.data.append(self.fit_data)
+        if self.cfr_data:
+            self.cfr_data.show()
+            self.data.append(self.cfr_data)
+        return self.data
 
 
 if __name__ == "__main__":
-    # Usage: pass a file name as an argument
-    #   python corfuncstate.py <filename>
-    if len(sys.argv) > 1:
-        filename = sys.argv[1]
-        try:
-            if os.path.exists(filename):
-                reader = Reader()
-                reader.read(filename)
-            else:
-                print("File path supplied is not a valid file location.")
-        except Exception as e:
-            msg = "File loading error: {}.\n".format(filename)
-            print(msg + "\n" + e.message)
-    else:
-        print("No file path supplied.")
+    try:
+        # Usage: pass a file name as an argument
+        #   python save_state_reader.py <filename>
+        if len(sys.argv) > 1:
+            filename = sys.argv[1]
+            try:
+                if os.path.exists(filename):
+                    reader = Reader()
+                    data = reader.read(filename)
+                    data_set = data[0]
+                else:
+                    print("File path supplied is not a valid file location.")
+            except Exception as e:
+                msg = "File loading error: {}.\n".format(filename)
+                print(msg + "\n" + e.message)
+        else:
+            print("No file path supplied.")
+    except Exception as exc:
+        print(exc.message)

@@ -28,7 +28,12 @@ FILE_ASSOCIATIONS = {
     ".abs": "abs_reader",
     ".cor": "abs_reader",
     ".sans": "danse_reader",
-    ".pdh": "anton_paar_saxs_reader"
+    ".pdh": "anton_paar_saxs_reader",
+    ".svs": "save_state_reader",
+    ".fitv": "save_state_reader",
+    ".prv": "save_state_reader",
+    ".inv": "save_state_reader",
+    ".crf": "save_state_reader"
 }
 
 
