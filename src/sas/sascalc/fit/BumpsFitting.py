@@ -10,12 +10,16 @@ import numpy as np
 from bumps import fitters
 try:
     from bumps.options import FIT_CONFIG
+    # Preserve bumps default fitter in case someone wants it later
+    BUMPS_DEFAULT_FITTER = FIT_CONFIG.selected_id
     # Default bumps to use the Levenberg-Marquardt optimizer
     FIT_CONFIG.selected_id = fitters.LevenbergMarquardtFit.id
     def get_fitter():
         return FIT_CONFIG.selected_fitter, FIT_CONFIG.selected_values
 except ImportError:
     # CRUFT: Bumps changed its handling of fit options around 0.7.5.6
+    # Preserve bumps default fitter in case someone wants it later
+    BUMPS_DEFAULT_FITTER = fitters.FIT_DEFAULT
     # Default bumps to use the Levenberg-Marquardt optimizer
     fitters.FIT_DEFAULT = 'lm'
     def get_fitter():
@@ -116,7 +120,12 @@ class SasFitness(object):
     """
     def __init__(self, model, data, fitted=[], constraints={},
                  initial_values=None, **kw):
-        self.name = model.name
+        # Pull data name from sas_data entry, if available
+        try:
+            data_name = " " + os.path.basename(data.sas_data.name)
+        except Exception:
+            data_name = ""
+        self.name = model.name + data_name
         self.model = model.model
         self.data = data
         if self.data.smearer is not None:
@@ -221,12 +230,13 @@ class ParameterExpressions(object):
 
     def _setup(self):
         exprs = {}
-        for M in self.models:
-            exprs.update((".".join((M.name, k)), v) for k, v in M.constraints.items())
+        for model in self.models:
+            exprs.update((".".join((model.name, k)), v)
+                         for k, v in model.constraints.items())
         if exprs:
-            symtab = dict((".".join((M.name, k)), p)
-                          for M in self.models
-                          for k, p in M.parameters().items())
+            symtab = dict((".".join((model.name, k)), p)
+                          for model in self.models
+                          for k, p in model.parameters().items())
             self.update = compile_constraints(symtab, exprs)
         else:
             self.update = lambda: 0
