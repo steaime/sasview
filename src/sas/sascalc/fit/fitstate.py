@@ -59,7 +59,9 @@ class FitState(object):
         self.simfit = None
         self.fits = []
 
+
         reader = Reader(self._add_entry)
+        print(self.fits)
         #datasets = reader.read(fitfile)
         #print("datasets", datasets[0])
         self._set_constraints()
@@ -70,6 +72,7 @@ class FitState(object):
         Handed to the reader to receive and accumulate the loaded state objects.
         """
         # Note: datainfo is in state.data; format=.svs means reset fit panels
+        print('Adding state', state)
         if isinstance(state, PageState):
             # TODO: shouldn't the update be part of the load?
             state._convert_to_sasmodels()
@@ -78,7 +81,7 @@ class FitState(object):
             self.simfit = state
         else:
             # ignore empty fit info
-            pass
+            raise RuntimeError("No state found")
 
     def __str__(self):
         # type: () -> str
@@ -400,6 +403,7 @@ class BumpsPlugin:
     @staticmethod
     def load_model(filename):
         # type: (str) -> FitProblem
+        print("Loading model")
         state = FitState(filename)
         state.show()
         #print("====\nfit", state)
