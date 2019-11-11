@@ -60,12 +60,12 @@ class FitState(object):
         self.fits = []
 
 
+        #TODO: potentially convert json to svs on the fly
         reader = Reader(self._add_entry)
-        print(self.fits)
-        #datasets = reader.read(fitfile)
-        #print("datasets", datasets[0])
+        datasets = reader.read(fitfile)
         self._set_constraints()
         #print("loaded", datasets)
+
 
     def _add_entry(self, state=None, datainfo=None, format=None):
         """
@@ -408,7 +408,7 @@ class BumpsPlugin:
         state.show()
         #print("====\nfit", state)
         problem = state.make_fitproblem()
-        #print(problem.show())
+        print(problem.show())
 
         # CRUFT: older bumps doesn't handle missing fit parameters
         from distutils.version import StrictVersion
