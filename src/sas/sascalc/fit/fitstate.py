@@ -10,9 +10,10 @@ in-memory representation.
 """
 import os
 import copy
-from collections import namedtuple
-
+import logging
 import numpy as np
+
+from collections import namedtuple
 
 from bumps.names import FitProblem
 
@@ -25,6 +26,10 @@ from .BumpsFitting import SasFitness, ParameterExpressions
 from .AbstractFitEngine import FitData1D, FitData2D, Model
 from .models import PLUGIN_NAME_BASE, find_plugins_dir
 from .qsmearing import smear_selection
+
+import sas.qtgui.Utilities.GuiUtils as GuiUtils
+
+logger = logging.getLogger(__name__)
 
 # Monkey patch SasFitness class with plotter
 def sasfitness_plot(self, view='log'):
@@ -59,30 +64,75 @@ class FitState(object):
         self.simfit = None
         self.fits = []
 
-
-        #TODO: potentially convert json to svs on the fly
-        reader = Reader(self._add_entry)
-        datasets = reader.read(fitfile)
+        with open(fitfile, 'r') as infile:
+            try:
+                all_data = GuiUtils.readDataFromFile(infile)
+            except Exception as ex:
+                logging.error("Project load failed with " + str(ex))
+                return
+        for key in all_data.keys():
+            #Skipping non-obvious cases for the moment
+            if key=='is_batch' or key=='batch_grid':
+                continue
+            if 'cs_tab' in key:
+                continue
+            # send newly created items to the perspective
+            self._add_entry(all_data[key])
         self._set_constraints()
         #print("loaded", datasets)
 
 
+    def _convert_to_sasmodels(self, state):
+         """
+         Convert parameters to a form usable by sasmodels converter
+
+         :return: None
+         """
+         # Create conversion dictionary to send to sasmodels
+         self.parameters = []
+         for key in state.keys():
+             if 'fit_params' in key:
+                 fit_parameters = state[key][0]
+
+                 for param in fit_parameters:
+                     if '2D_params' in param:
+                         continue
+
+                     values = fit_parameters[param]
+                     if len(values) == 6:
+                        std = values[2]
+                        lower = values[3]
+                        upper = values[4]
+                        if std is not None and std is not np.nan:
+                            std = [True, str(std)]
+                        else:
+                            std = [False, '']
+                        if lower is not None and lower is not np.nan:
+                            lower = [True, str(lower)]
+                        else:
+                            lower = [True, '-inf']
+                        if upper is not None and upper is not np.nan:
+                            upper = [True, str(upper)]
+                        else:
+                            upper = [True, 'inf']
+
+                        # TODO: We are missing units in json files
+                        param_list = [values[0], param, values[1],
+                                   "+/-", std, lower, upper, '']
+                        self.parameters.append(param_list)
+
     def _add_entry(self, state=None, datainfo=None, format=None):
         """
-        Handed to the reader to receive and accumulate the loaded state objects.
+        State is data id from json filr in 5.x
         """
         # Note: datainfo is in state.data; format=.svs means reset fit panels
-        print('Adding state', state)
-        if isinstance(state, PageState):
-            # TODO: shouldn't the update be part of the load?
-            state._convert_to_sasmodels()
-            self.fits.append(state)
-        elif isinstance(state, SimFitPageState):
-            self.simfit = state
+        if state != None:
+            #TODO convert fit parameters  to sasmodels
+            self._convert_to_sasmodels(state)
         else:
-            # ignore empty fit info
             raise RuntimeError("No state found")
-
+        print('Adding state', self.parameters)
+        
     def __str__(self):
         # type: () -> str
         return '<SasViewFit %s>'%self.fitfile

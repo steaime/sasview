@@ -8,7 +8,6 @@ import logging
 import traceback
 from twisted.internet import threads
 import numpy as np
-import webbrowser
 
 from PyQt5 import QtCore
 from PyQt5 import QtGui
@@ -21,7 +20,6 @@ from sasmodels.sasview_model import MultiplicationModel
 from sasmodels.weights import MODELS as POLYDISPERSITY_MODELS
 
 from sas.sascalc.fit.BumpsFitting import BumpsFit as Fit
-from sas.sascalc.fit.pagestate import PageState
 
 import sas.qtgui.Utilities.GuiUtils as GuiUtils
 import sas.qtgui.Utilities.LocalConfig as LocalConfig
