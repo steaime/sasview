@@ -440,111 +440,112 @@ def convertToSVS(json_params):
     """
     content = {}
     pagestate = PageState()
-    for jdata in json_params:
-        # we already have data - interested only in properties
-        #[[item_1, state_1], [item_2, state_2],...]
-        pagestate.data = jdata
+    #First setup what can and the remaining
+    param_dict = json_params['fit_params'][0]
+    #Setup model parameters first and if they need to be overwriten it should be updated later
+    pagestate.data = json_params['fit_params']
+    print('Fit data', json_params['fit_data'][0])
+    pagestate.parameters = {}
+    for parameter in param_dict.keys():
+        if len(param_dict[parameter]) == 6:
+            #TODO: This can't be right
+            pagestate.parameters[parameter] = [None]*9
+            pagestate.parameters[parameter][0] = param_dict[parameter][0]
+            pagestate.parameters[parameter][1] = parameter
+            pagestate.parameters[parameter][2] = param_dict[parameter][1]
+            pagestate.parameters[parameter][5] = [None]*2
+            pagestate.parameters[parameter][5][1] = param_dict[parameter][3]
+            pagestate.parameters[parameter][6] = [None] * 2
+            pagestate.parameters[parameter][6][1] = param_dict[parameter][4]
 
-        params = dataset[1]
-        content[params.data_id] = {}
-        content[params.data_id]['fit_data'] = [data, {'checked': 2}, []]
-        param_dict = {}
-        param_dict['fitpage_category'] = [params.categorycombobox]
-        param_dict['fitpage_model'] = [params.formfactorcombobox]
-        param_dict['fitpage_structure'] = [params.structurecombobox]
-        param_dict['2D_params'] = [str(params.is_2D)]
-        param_dict['chainfit_params'] = ["False"]
-        param_dict['data_id'] = [params.data_id]
-        param_dict['data_name'] = [params.data_name]
-        param_dict['is_data'] = [str(params.is_data)]
-        param_dict['magnetic_params'] = [str(params.magnetic_on)]
-        param_dict['model_name'] = [params.formfactorcombobox]
-        param_dict['polydisperse_params'] = [str(params.enable_disp)]
-        param_dict['q_range_max'] = [str(params.qmax)]
-        param_dict['q_range_min'] = [str(params.qmin)]
-        # Smearing is a bit trickier. 4.x has multiple keywords,
-        # one for each combobox option
-        if params.enable_smearer:
-            if params.slit_smearer:
-                w = 1
-            elif params.pinhole_smearer:
-                w = 2
-            else:
-                w = 0
-            param_dict['smearing'] = [str(w)]
-        # weighting is also tricky. 4.x has multiple keywords,
-        # one for each radio box.
-        if params.dI_noweight:
-            w = 2
-        elif params.dI_didata:
-            w = 3
-        elif params.dI_sqrdata:
-            w = 4
-        elif params.dI_idata:
-            w = 5
-        else:
-            w = 2
-        param_dict['weighting'] = [str(w)]
+        if param_dict['2D_params'] and len(param_dict[parameter]) == 9:
+            #TODO: Check what is the lenght for 2D
+            pagestate.parameters[parameter] = [None] * 9
+            pagestate.parameters[parameter][0] = param_dict[parameter][0]
+            pagestate.parameters[parameter][1] = parameter
+            pagestate.parameters[parameter][5][1] = param_dict[parameter][3]
+            pagestate.parameters[parameter][6] = [None] * 2
+            pagestate.parameters[parameter][6][1] = param_dict[parameter][4]
 
-        # 4.x multi_factor is really the multiplicity
-        if params.multi_factor is not None:
-            param_dict['multiplicity'] = [str(int(params.multi_factor))]
+        if param_dict['polydispers_params']:
+            pagestate.parameters[parameter] = [None] * 9
+            pagestate.parameters[parameter][1] = parameter
+            #[p_opt, p_width, p_min, p_max, p_npts, p_nsigmas, p_disp] = param_dict[paramter]
+            pagestate.parameters[parameter][0] = param_dict[parameter][0]
+            pagestate.parameters[parameter][2] = param_dict[parameter][2]
 
-        # playing with titles
-        data.filename = params.file
-        data.title = params.data_name
-        data.name = params.data_name
+            param_npts = parameter.replace('.npts', '.width')
+            param_nsigmas = parameter.replace('.nsigmas', '.width')
 
-        # main parameters
-        for p in params.parameters:
-            p_name = p[1]
-            param_dict[p_name] = [str(p[0]), str(p[2]), None, str(p[5][1]), str(p[6][1]), []]
-        # orientation parameters
-        if params.is_2D:
-            for p in params.orientation_params:
-                p_name = p[1]
-                p_min = "-360.0"
-                p_max = "360.0"
-                if p[5][1] != "":
-                    p_min = p[5][1]
-                if p[6][1] != "":
-                    p_max = p[6][1]
-                param_dict[p_name] = [str(p[0]), str(p[2]), None, p_min, p_max, []]
+    # if params.enable_disp:
+    #     for p in params.fittable_param:
+    #         p_name = p[1]
+    #         p_opt = str(p[0])
+    #         p_err = "0"
+    #         p_width = str(p[2])
+    #         p_min = str(0)
+    #         p_max = "inf"
+    #         param_npts = p_name.replace('.width','.npts')
+    #         param_nsigmas = p_name.replace('.width', '.nsigmas')
+    #         if params.is_2D and p_name in params.disp_obj_dict:
+    #             lookup = params.orientation_params_disp
+    #             p_min = "-360.0"
+    #             p_max = "360.0"
+    #         else:
+    #             lookup = params.fixed_param
+    #         p_npts = [s[2] for s in lookup if s[1] == param_npts][0]
+    #         p_nsigmas = [s[2] for s in lookup if s[1] == param_nsigmas][0]
+    #         if p_name in params.disp_obj_dict:
+    #             p_disp = params.disp_obj_dict[p_name]
+    #         else:
+    #             p_disp = "gaussian"
+    #         param_dict[p_name] = [p_opt, p_width, p_min, p_max, p_npts, p_nsigmas, p_disp]
 
-        # disperse parameters
-        if params.enable_disp:
-            for p in params.fittable_param:
-                p_name = p[1]
-                p_opt = str(p[0])
-                p_err = "0"
-                p_width = str(p[2])
-                p_min = str(0)
-                p_max = "inf"
-                param_npts = p_name.replace('.width','.npts')
-                param_nsigmas = p_name.replace('.width', '.nsigmas')
-                if params.is_2D and p_name in params.disp_obj_dict:
-                    lookup = params.orientation_params_disp
-                    p_min = "-360.0"
-                    p_max = "360.0"
-                else:
-                    lookup = params.fixed_param
-                p_npts = [s[2] for s in lookup if s[1] == param_npts][0]
-                p_nsigmas = [s[2] for s in lookup if s[1] == param_nsigmas][0]
-                if p_name in params.disp_obj_dict:
-                    p_disp = params.disp_obj_dict[p_name]
-                else:
-                    p_disp = "gaussian"
-                param_dict[p_name] = [p_opt, p_width, p_min, p_max, p_npts, p_nsigmas, p_disp]
+    pagestate.name = param_dict['model_name']
+    pagestate.categorycombobox = param_dict['fitpage_category']
+    pagestate.formfactorcombobox = param_dict['fitpage_model']
+    pagestate.structurecombobox = param_dict['fitpage_structure']
+    pagestate.is_2D = param_dict['2D_params']
+    pagestate.data_id = param_dict['data_id']
+    pagestate.data_name = param_dict['data_name']
+    pagestate.is_data = param_dict['is_data']
+    pagestate.magnetic_on = param_dict['magnetic_params']
+    pagestate.enable_disp = param_dict['polydisperse_params']
+    pagestate.qmax = param_dict['q_range_max']
+    pagestate.qmin = param_dict['q_range_min']
+    if param_dict['smearing'] == '1':
+        pagestate.enable_smearer = True
+        pagestate.slit_smearer = param_dict['smearing']
+    elif param_dict['smearing'] == '2':
+        pagestate.enable_smearer = True
+        pagestate.pinhole_smearer = param_dict['smearing']
+    else:
+        pagestate.enable_smearer = False
 
-        param_dict['is_batch_fitting'] = ['False']
-        content[params.data_id]['fit_params'] = param_dict
+    if param_dict['weighting'] == '2':
+        pagestate.dI_noweight = True
+    elif param_dict['weighting'] == '3':
+        pagestate.dI_didata = True
+    elif param_dict['weighting'] == '4':
+        pagestate.dI_sqrdata = True
+    elif param_dict['weighting'] == '5':
+        pagestate.dI_idata = True
+    else:
+        pagestate.dI_noweight = False
+        pagestate.dI_didata = False
+        pagestate.dI_sqrdata = False
+        pagestate.dI_jdata = False
 
-    return content
+        #content[pagestate.data_id]['fit_params'] = param_dict
+    return pagestate
+
 
 
 if __name__ == "__main__":
     js = JsonManager()
-    parameters = js.load_from_readable(open('/Users/wojciechpotrzebowski/Desktop/sasview_5.0_2states_proj.json'))
-    js._convert_to_sasmodels(parameters)
+    parameters = js.load_from_readable(open('/Users/wojciechpotrzebowski/Desktop/sasview_5.0_proj'))
+    for state in parameters.keys():
+        if state != 'batch_grid' and state!='is_batch':
+            convertToSVS(parameters[state])
     #TODO: so loading works - now need to save it to svs file
     #js.save_to_writable(open('local_json.json','w'))
