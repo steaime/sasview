@@ -439,43 +439,75 @@ def convertToSVS(json_params):
     Read in properties from JSON and converts it into SVS pagestate
     """
     content = {}
+    reader = Reader()
     pagestate = PageState()
     #First setup what can and the remaining
     param_dict = json_params['fit_params'][0]
     #Setup model parameters first and if they need to be overwriten it should be updated later
-    pagestate.data = json_params['fit_params']
-    print('Fit data', json_params['fit_data'][0])
-    pagestate.parameters = {}
+    data = json_params['fit_data'][0]
+    pagestate.data = data
+    pagestate.parameters = []
+    index = 0
     for parameter in param_dict.keys():
         if len(param_dict[parameter]) == 6:
-            #TODO: This can't be right
-            pagestate.parameters[parameter] = [None]*9
-            pagestate.parameters[parameter][0] = param_dict[parameter][0]
-            pagestate.parameters[parameter][1] = parameter
-            pagestate.parameters[parameter][2] = param_dict[parameter][1]
-            pagestate.parameters[parameter][5] = [None]*2
-            pagestate.parameters[parameter][5][1] = param_dict[parameter][3]
-            pagestate.parameters[parameter][6] = [None] * 2
-            pagestate.parameters[parameter][6][1] = param_dict[parameter][4]
+            #TODO: What is the lenght for parameter dict
+            pagestate.parameters.append([None] * 8)
+            pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
+            pagestate.parameters[index][1] = parameter
+            pagestate.parameters[index][2] = param_dict[parameter][1]
+            # TODO: Where is the source for this?
+            pagestate.parameters[index][3] = '+/-'
+            pagestate.parameters[index][4] = [''] * 2
+            pagestate.parameters[index][4][0] = False
+            if param_dict[parameter][2] != '':
+                pagestate.parameters[index][4][0] = True
+                pagestate.parameters[index][4][1] = param_dict[parameter][2]
+            pagestate.parameters[index][5] = [''] * 2
+            if param_dict[parameter][3] != '':
+                pagestate.parameters[index][5][0] = True
+                pagestate.parameters[index][5][1] = param_dict[parameter][3]
+            pagestate.parameters[index][6] = [''] * 2
+            if param_dict[parameter][4] != '':
+                pagestate.parameters[index][6][0] = True
+                pagestate.parameters[index][6][1] = param_dict[parameter][4]
+            #TODO: It seems that we are missing unit in json file
+            pagestate.parameters[index][7] = ''
+            index+=1
 
         if param_dict['2D_params'] and len(param_dict[parameter]) == 9:
-            #TODO: Check what is the lenght for 2D
-            pagestate.parameters[parameter] = [None] * 9
-            pagestate.parameters[parameter][0] = param_dict[parameter][0]
-            pagestate.parameters[parameter][1] = parameter
-            pagestate.parameters[parameter][5][1] = param_dict[parameter][3]
-            pagestate.parameters[parameter][6] = [None] * 2
-            pagestate.parameters[parameter][6][1] = param_dict[parameter][4]
+            #TODO: Currently it is the same defintion as 1D casee
+            pagestate.parameters.append([None] * 8)
+            pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
+            pagestate.parameters[index][1] = parameter
+            pagestate.parameters[index][2] = param_dict[parameter][1]
+            #TODO: Where is the source for this?
+            pagestate.parameters[index][3] = '+/-'
+            pagestate.parameters[index][4] = [''] * 2
+            pagestate.parameters[index][4][0] = False
+            if param_dict[parameter][2] != '':
+                pagestate.parameters[index][4][0] = True
+                pagestate.parameters[index][4][1] = param_dict[parameter][2]
+            pagestate.parameters[index][5] = [''] * 2
+            if param_dict[parameter][3] != '':
+                pagestate.parameters[index][5][0] = True
+                pagestate.parameters[index][5][1] = param_dict[parameter][3]
+            pagestate.parameters[index][6] = [''] * 2
+            if param_dict[parameter][4] != '':
+                pagestate.parameters[index][6][0] = True
+                pagestate.parameters[index][6][1] = param_dict[parameter][4]
+            # TODO: It seems that we are missing unit in json file
+            pagestate.parameters[index][7] = ''
+            index += 1
 
-        if param_dict['polydispers_params']:
-            pagestate.parameters[parameter] = [None] * 9
-            pagestate.parameters[parameter][1] = parameter
-            #[p_opt, p_width, p_min, p_max, p_npts, p_nsigmas, p_disp] = param_dict[paramter]
-            pagestate.parameters[parameter][0] = param_dict[parameter][0]
-            pagestate.parameters[parameter][2] = param_dict[parameter][2]
-
-            param_npts = parameter.replace('.npts', '.width')
-            param_nsigmas = parameter.replace('.nsigmas', '.width')
+        # if param_dict['polydispers_params']:
+        #     pagestate.parameters[parameter] = [None] * 9
+        #     pagestate.parameters[parameter][1] = parameter
+        #     #[p_opt, p_width, p_min, p_max, p_npts, p_nsigmas, p_disp] = param_dict[paramter]
+        #     pagestate.parameters[parameter][0] = param_dict[parameter][0]
+        #     pagestate.parameters[parameter][2] = param_dict[parameter][2]
+        #
+        #     param_npts = parameter.replace('.npts', '.width')
+        #     param_nsigmas = parameter.replace('.nsigmas', '.width')
 
     # if params.enable_disp:
     #     for p in params.fittable_param:
@@ -502,17 +534,18 @@ def convertToSVS(json_params):
     #         param_dict[p_name] = [p_opt, p_width, p_min, p_max, p_npts, p_nsigmas, p_disp]
 
     pagestate.name = param_dict['model_name']
-    pagestate.categorycombobox = param_dict['fitpage_category']
-    pagestate.formfactorcombobox = param_dict['fitpage_model']
-    pagestate.structurecombobox = param_dict['fitpage_structure']
+    pagestate.categorycombobox = param_dict['fitpage_category'][0]
+    pagestate.formfactorcombobox = param_dict['fitpage_model'][0]
+    pagestate.structurecombobox = param_dict['fitpage_structure'][0]
     pagestate.is_2D = param_dict['2D_params']
     pagestate.data_id = param_dict['data_id']
     pagestate.data_name = param_dict['data_name']
     pagestate.is_data = param_dict['is_data']
     pagestate.magnetic_on = param_dict['magnetic_params']
     pagestate.enable_disp = param_dict['polydisperse_params']
-    pagestate.qmax = param_dict['q_range_max']
-    pagestate.qmin = param_dict['q_range_min']
+    pagestate.qmax = param_dict['q_range_max'][0]
+    pagestate.qmin = param_dict['q_range_min'][0]
+    print('Model definition', pagestate.qmax, pagestate.qmin )
     if param_dict['smearing'] == '1':
         pagestate.enable_smearer = True
         pagestate.slit_smearer = param_dict['smearing']
@@ -537,15 +570,21 @@ def convertToSVS(json_params):
         pagestate.dI_jdata = False
 
         #content[pagestate.data_id]['fit_params'] = param_dict
+    print('pagestate data ', pagestate.__repr__())
+    #state_reader = Reader()
+    #state_reader.write('headless.svs', data, pagestate)
     return pagestate
 
 
 
 if __name__ == "__main__":
     js = JsonManager()
+    reader = Reader()
     parameters = js.load_from_readable(open('/Users/wojciechpotrzebowski/Desktop/sasview_5.0_proj'))
+    #state_svs = []
     for state in parameters.keys():
         if state != 'batch_grid' and state!='is_batch':
-            convertToSVS(parameters[state])
+            pagestate = convertToSVS(parameters[state])
+
     #TODO: so loading works - now need to save it to svs file
     #js.save_to_writable(open('local_json.json','w'))
