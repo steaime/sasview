@@ -10,10 +10,9 @@ in-memory representation.
 """
 import os
 import copy
-import logging
-import numpy as np
-
 from collections import namedtuple
+
+import numpy as np
 
 from bumps.names import FitProblem
 
@@ -28,8 +27,6 @@ from .models import PLUGIN_NAME_BASE, find_plugins_dir
 from .qsmearing import smear_selection
 
 import sas.qtgui.Utilities.GuiUtils as GuiUtils
-
-logger = logging.getLogger(__name__)
 
 # Monkey patch SasFitness class with plotter
 def sasfitness_plot(self, view='log'):
@@ -58,81 +55,193 @@ PARAMETER_FIELDS = [
     ]
 SasviewParameter = namedtuple("Parameter", PARAMETER_FIELDS)
 
+class JsonReader(object):
+    """
+    Read in file and convert from JSON to pagestate, so it can be furthur used by headless operaion
+    """
+    def __init__(self, fitfile):
+        self.fitfile = fitfile
+        self.simfit = None
+
+    def read(self):
+
+        parameters = GuiUtils.readDataFromFile(open(self.fitfile))
+        # state_svs = []
+        for state in parameters.keys():
+            if state != 'batch_grid' and state != 'is_batch':
+                pagestate = self._convertToSVS(parameters[state])
+        return pagestate
+
+    def _convertToSVS(self, json_params):
+        """
+        Read in properties from JSON and converts it into SVS pagestate
+        """
+        content = {}
+        pagestate = PageState()
+        # First setup what can and the remaining
+        param_dict = json_params['fit_params'][0]
+        # Setup model parameters first and if they need to be overwriten it should be updated later
+        data = json_params['fit_data'][0]
+        pagestate.data = data
+        pagestate.parameters = []
+        index = 0
+        for parameter in param_dict.keys():
+            if len(param_dict[parameter]) == 6:
+                # TODO: What is the lenght for parameter dict
+                pagestate.parameters.append([None] * 8)
+                pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
+                pagestate.parameters[index][1] = parameter
+                pagestate.parameters[index][2] = param_dict[parameter][1]
+                # TODO: Where is the source for this?
+                pagestate.parameters[index][3] = '+/-'
+                pagestate.parameters[index][4] = [''] * 2
+                pagestate.parameters[index][4][0] = False
+                if param_dict[parameter][2] != '':
+                    pagestate.parameters[index][4][0] = True
+                    pagestate.parameters[index][4][1] = param_dict[parameter][2]
+                pagestate.parameters[index][5] = [''] * 2
+                if param_dict[parameter][3] != '':
+                    pagestate.parameters[index][5][0] = True
+                    pagestate.parameters[index][5][1] = param_dict[parameter][3]
+                pagestate.parameters[index][6] = [''] * 2
+                if param_dict[parameter][4] != '':
+                    pagestate.parameters[index][6][0] = True
+                    pagestate.parameters[index][6][1] = param_dict[parameter][4]
+                # TODO: It seems that we are missing unit in json file
+                pagestate.parameters[index][7] = ''
+                index += 1
+
+            if param_dict['2D_params'] and len(param_dict[parameter]) == 9:
+                # TODO: Currently it is the same defintion as 1D casee
+                pagestate.parameters.append([None] * 8)
+                pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
+                pagestate.parameters[index][1] = parameter
+                pagestate.parameters[index][2] = param_dict[parameter][1]
+                # TODO: Where is the source for this?
+                pagestate.parameters[index][3] = '+/-'
+                pagestate.parameters[index][4] = [''] * 2
+                pagestate.parameters[index][4][0] = False
+                if param_dict[parameter][2] != '':
+                    pagestate.parameters[index][4][0] = True
+                    pagestate.parameters[index][4][1] = param_dict[parameter][2]
+                pagestate.parameters[index][5] = [''] * 2
+                if param_dict[parameter][3] != '':
+                    pagestate.parameters[index][5][0] = True
+                    pagestate.parameters[index][5][1] = param_dict[parameter][3]
+                pagestate.parameters[index][6] = [''] * 2
+                if param_dict[parameter][4] != '':
+                    pagestate.parameters[index][6][0] = True
+                    pagestate.parameters[index][6][1] = param_dict[parameter][4]
+                # TODO: It seems that we are missing unit in json file
+                pagestate.parameters[index][7] = ''
+                index += 1
+
+            # if param_dict['polydispers_params']:
+            #     pagestate.parameters[parameter] = [None] * 9
+            #     pagestate.parameters[parameter][1] = parameter
+            #     #[p_opt, p_width, p_min, p_max, p_npts, p_nsigmas, p_disp] = param_dict[paramter]
+            #     pagestate.parameters[parameter][0] = param_dict[parameter][0]
+            #     pagestate.parameters[parameter][2] = param_dict[parameter][2]
+            #
+            #     param_npts = parameter.replace('.npts', '.width')
+            #     param_nsigmas = parameter.replace('.nsigmas', '.width')
+
+        # if params.enable_disp:
+        #     for p in params.fittable_param:
+        #         p_name = p[1]
+        #         p_opt = str(p[0])
+        #         p_err = "0"
+        #         p_width = str(p[2])
+        #         p_min = str(0)
+        #         p_max = "inf"
+        #         param_npts = p_name.replace('.width','.npts')
+        #         param_nsigmas = p_name.replace('.width', '.nsigmas')
+        #         if params.is_2D and p_name in params.disp_obj_dict:
+        #             lookup = params.orientation_params_disp
+        #             p_min = "-360.0"
+        #             p_max = "360.0"
+        #         else:
+        #             lookup = params.fixed_param
+        #         p_npts = [s[2] for s in lookup if s[1] == param_npts][0]
+        #         p_nsigmas = [s[2] for s in lookup if s[1] == param_nsigmas][0]
+        #         if p_name in params.disp_obj_dict:
+        #             p_disp = params.disp_obj_dict[p_name]
+        #         else:
+        #             p_disp = "gaussian"
+        #         param_dict[p_name] = [p_opt, p_width, p_min, p_max, p_npts, p_nsigmas, p_disp]
+
+        pagestate.name = param_dict['model_name']
+        pagestate.categorycombobox = param_dict['fitpage_category'][0]
+        pagestate.formfactorcombobox = param_dict['fitpage_model'][0]
+        pagestate.structurecombobox = param_dict['fitpage_structure'][0]
+        pagestate.is_2D = param_dict['2D_params']
+        pagestate.data_id = param_dict['data_id']
+        pagestate.data_name = param_dict['data_name']
+        pagestate.is_data = param_dict['is_data']
+        pagestate.magnetic_on = param_dict['magnetic_params']
+        pagestate.enable_disp = param_dict['polydisperse_params']
+        pagestate.qmax = float(param_dict['q_range_max'][0])
+        pagestate.qmin = float(param_dict['q_range_min'][0])
+        if param_dict['smearing'] == '1':
+            pagestate.enable_smearer = True
+            pagestate.slit_smearer = param_dict['smearing']
+        elif param_dict['smearing'] == '2':
+            pagestate.enable_smearer = True
+            pagestate.pinhole_smearer = param_dict['smearing']
+        else:
+            pagestate.enable_smearer = False
+
+        if param_dict['weighting'] == '2':
+            pagestate.dI_noweight = True
+        elif param_dict['weighting'] == '3':
+            pagestate.dI_didata = True
+        elif param_dict['weighting'] == '4':
+            pagestate.dI_sqrdata = True
+        elif param_dict['weighting'] == '5':
+            pagestate.dI_idata = True
+        else:
+            pagestate.dI_noweight = False
+            pagestate.dI_didata = False
+            pagestate.dI_sqrdata = False
+            pagestate.dI_jdata = False
+
+        return pagestate
+
+
 class FitState(object):
     def __init__(self, fitfile):
         self.fitfile = fitfile
         self.simfit = None
         self.fits = []
 
-        with open(fitfile, 'r') as infile:
-            try:
-                all_data = GuiUtils.readDataFromFile(infile)
-            except Exception as ex:
-                logging.error("Project load failed with " + str(ex))
-                return
-        for key in all_data.keys():
-            #Skipping non-obvious cases for the moment
-            if key=='is_batch' or key=='batch_grid':
-                continue
-            if 'cs_tab' in key:
-                continue
-            # send newly created items to the perspective
-            self._add_entry(all_data[key])
+
+        #TODO: potentially convert json to svs on the fly
+        reader = JsonReader(fitfile)
+        state = reader.read()
+        self._add_entry(state)
+
+        #reader = Reader(self._add_entry)
+        #datasets = reader.read(fitfile)
         self._set_constraints()
         #print("loaded", datasets)
 
 
-    def _convert_to_sasmodels(self, state):
-         """
-         Convert parameters to a form usable by sasmodels converter
-
-         :return: None
-         """
-         # Create conversion dictionary to send to sasmodels
-         self.parameters = []
-         for key in state.keys():
-             if 'fit_params' in key:
-                 fit_parameters = state[key][0]
-
-                 for param in fit_parameters:
-                     if '2D_params' in param:
-                         continue
-
-                     values = fit_parameters[param]
-                     if len(values) == 6:
-                        std = values[2]
-                        lower = values[3]
-                        upper = values[4]
-                        if std is not None and std is not np.nan:
-                            std = [True, str(std)]
-                        else:
-                            std = [False, '']
-                        if lower is not None and lower is not np.nan:
-                            lower = [True, str(lower)]
-                        else:
-                            lower = [True, '-inf']
-                        if upper is not None and upper is not np.nan:
-                            upper = [True, str(upper)]
-                        else:
-                            upper = [True, 'inf']
-
-                        # TODO: We are missing units in json files
-                        param_list = [values[0], param, values[1],
-                                   "+/-", std, lower, upper, '']
-                        self.parameters.append(param_list)
-
     def _add_entry(self, state=None, datainfo=None, format=None):
         """
-        State is data id from json filr in 5.x
+        Handed to the reader to receive and accumulate the loaded state objects.
         """
         # Note: datainfo is in state.data; format=.svs means reset fit panels
-        if state != None:
-            #TODO convert fit parameters  to sasmodels
-            self._convert_to_sasmodels(state)
+        print('Adding state', state)
+        if isinstance(state, PageState):
+            # TODO: shouldn't the update be part of the load?
+            state._convert_to_sasmodels()
+            self.fits.append(state)
+        elif isinstance(state, SimFitPageState):
+            self.simfit = state
         else:
+            # ignore empty fit info
             raise RuntimeError("No state found")
-        print('Adding state', self.parameters)
-        
+
     def __str__(self):
         # type: () -> str
         return '<SasViewFit %s>'%self.fitfile
@@ -273,8 +382,8 @@ def get_data_weight(state):
         weight = np.ones_like(data)
     elif state.dI_didata:
         weight = dy_data
-    elif state.dI_sqridata:
-        weight = np.sqrt(np.abs(data))
+    #elif state.dI_sqridata:
+    #    weight = np.sqrt(np.abs(data))
     elif state.dI_idata:
         weight = np.abs(data)
     return weight
