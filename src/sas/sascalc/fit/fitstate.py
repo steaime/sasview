@@ -83,92 +83,63 @@ class JsonReader(object):
         # Setup model parameters first and if they need to be overwriten it should be updated later
         data = json_params['fit_data'][0]
         pagestate.data = data
+        pagestate.is_2D = True if param_dict['2D_params'][0] == 'True' else False
         pagestate.parameters = []
         index = 0
         for parameter in param_dict.keys():
             if len(param_dict[parameter]) == 6:
-                # TODO: What is the lenght for parameter dict
-                pagestate.parameters.append([None] * 8)
-                pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
-                pagestate.parameters[index][1] = parameter
-                pagestate.parameters[index][2] = param_dict[parameter][1]
-                # TODO: Where is the source for this?
-                pagestate.parameters[index][3] = '+/-'
-                pagestate.parameters[index][4] = [''] * 2
-                pagestate.parameters[index][4][0] = False
-                if param_dict[parameter][2] != '':
-                    pagestate.parameters[index][4][0] = True
-                    pagestate.parameters[index][4][1] = param_dict[parameter][2]
-                pagestate.parameters[index][5] = [''] * 2
-                if param_dict[parameter][3] != '':
-                    pagestate.parameters[index][5][0] = True
-                    pagestate.parameters[index][5][1] = param_dict[parameter][3]
-                pagestate.parameters[index][6] = [''] * 2
-                if param_dict[parameter][4] != '':
-                    pagestate.parameters[index][6][0] = True
-                    pagestate.parameters[index][6][1] = param_dict[parameter][4]
-                # TODO: It seems that we are missing unit in json file
-                pagestate.parameters[index][7] = ''
-                index += 1
-
-            if param_dict['2D_params'] and len(param_dict[parameter]) == 9:
-                # TODO: Currently it is the same defintion as 1D casee
-                pagestate.parameters.append([None] * 8)
-                pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
-                pagestate.parameters[index][1] = parameter
-                pagestate.parameters[index][2] = param_dict[parameter][1]
-                # TODO: Where is the source for this?
-                pagestate.parameters[index][3] = '+/-'
-                pagestate.parameters[index][4] = [''] * 2
-                pagestate.parameters[index][4][0] = False
-                if param_dict[parameter][2] != '':
-                    pagestate.parameters[index][4][0] = True
-                    pagestate.parameters[index][4][1] = param_dict[parameter][2]
-                pagestate.parameters[index][5] = [''] * 2
-                if param_dict[parameter][3] != '':
-                    pagestate.parameters[index][5][0] = True
-                    pagestate.parameters[index][5][1] = param_dict[parameter][3]
-                pagestate.parameters[index][6] = [''] * 2
-                if param_dict[parameter][4] != '':
-                    pagestate.parameters[index][6][0] = True
-                    pagestate.parameters[index][6][1] = param_dict[parameter][4]
-                # TODO: It seems that we are missing unit in json file
-                pagestate.parameters[index][7] = ''
-                index += 1
-
-            # if param_dict['polydispers_params']:
-            #     pagestate.parameters[parameter] = [None] * 9
-            #     pagestate.parameters[parameter][1] = parameter
-            #     #[p_opt, p_width, p_min, p_max, p_npts, p_nsigmas, p_disp] = param_dict[paramter]
-            #     pagestate.parameters[parameter][0] = param_dict[parameter][0]
-            #     pagestate.parameters[parameter][2] = param_dict[parameter][2]
-            #
-            #     param_npts = parameter.replace('.npts', '.width')
-            #     param_nsigmas = parameter.replace('.nsigmas', '.width')
-
-        # if params.enable_disp:
-        #     for p in params.fittable_param:
-        #         p_name = p[1]
-        #         p_opt = str(p[0])
-        #         p_err = "0"
-        #         p_width = str(p[2])
-        #         p_min = str(0)
-        #         p_max = "inf"
-        #         param_npts = p_name.replace('.width','.npts')
-        #         param_nsigmas = p_name.replace('.width', '.nsigmas')
-        #         if params.is_2D and p_name in params.disp_obj_dict:
-        #             lookup = params.orientation_params_disp
-        #             p_min = "-360.0"
-        #             p_max = "360.0"
-        #         else:
-        #             lookup = params.fixed_param
-        #         p_npts = [s[2] for s in lookup if s[1] == param_npts][0]
-        #         p_nsigmas = [s[2] for s in lookup if s[1] == param_nsigmas][0]
-        #         if p_name in params.disp_obj_dict:
-        #             p_disp = params.disp_obj_dict[p_name]
-        #         else:
-        #             p_disp = "gaussian"
-        #         param_dict[p_name] = [p_opt, p_width, p_min, p_max, p_npts, p_nsigmas, p_disp]
+                if pagestate.is_2D:
+                    # TODO: Currently it is the same defintion as 1D casee
+                    pagestate.parameters.append([None] * 8)
+                    pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
+                    pagestate.parameters[index][1] = parameter
+                    pagestate.parameters[index][2] = param_dict[parameter][1]
+                    # TODO: Where is the source for this?
+                    pagestate.parameters[index][3] = '+/-'
+                    pagestate.parameters[index][4] = [''] * 2
+                    pagestate.parameters[index][4][0] = False
+                    if param_dict[parameter][2] != '':
+                        pagestate.parameters[index][4][0] = True
+                        pagestate.parameters[index][4][1] = param_dict[parameter][2]
+                    pagestate.parameters[index][5] = [''] * 2
+                    if param_dict[parameter][3] != '':
+                        pagestate.parameters[index][5][0] = True
+                        # TODO: Otherwise conversion needs to be provided?
+                        pagestate.parameters[index][5][1] = '-inf' if param_dict[parameter][3] == '-360.0' else \
+                            param_dict[parameter][3]
+                    pagestate.parameters[index][6] = [''] * 2
+                    if param_dict[parameter][4] != '':
+                        pagestate.parameters[index][6][0] = True
+                        # TODO: Otherwise conversion needs to be provided?
+                        pagestate.parameters[index][6][1] = 'inf' if param_dict[parameter][4] == '360.0' else \
+                            param_dict[parameter][3]
+                    # TODO: It seems that we are missing unit in json file
+                    pagestate.parameters[index][7] = ''
+                    index += 1
+                else:
+                    # TODO: What is the lenght for parameter dict
+                    pagestate.parameters.append([None] * 8)
+                    pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
+                    pagestate.parameters[index][1] = parameter
+                    pagestate.parameters[index][2] = param_dict[parameter][1]
+                    # TODO: Where is the source for this?
+                    pagestate.parameters[index][3] = '+/-'
+                    pagestate.parameters[index][4] = [''] * 2
+                    pagestate.parameters[index][4][0] = False
+                    if param_dict[parameter][2] != '':
+                        pagestate.parameters[index][4][0] = True
+                        pagestate.parameters[index][4][1] = param_dict[parameter][2]
+                    pagestate.parameters[index][5] = [''] * 2
+                    if param_dict[parameter][3] != '':
+                        pagestate.parameters[index][5][0] = True
+                        pagestate.parameters[index][5][1] = param_dict[parameter][3]
+                    pagestate.parameters[index][6] = [''] * 2
+                    if param_dict[parameter][4] != '':
+                        pagestate.parameters[index][6][0] = True
+                        pagestate.parameters[index][6][1] = param_dict[parameter][4]
+                    # TODO: It seems that we are missing unit in json file
+                    pagestate.parameters[index][7] = ''
+                    index += 1
 
         pagestate.name = param_dict['model_name']
         pagestate.categorycombobox = param_dict['fitpage_category'][0]
@@ -215,13 +186,15 @@ class FitState(object):
         self.fits = []
 
 
-        #TODO: potentially convert json to svs on the fly
+        #5.0 part
         reader = JsonReader(fitfile)
         state = reader.read()
         self._add_entry(state)
 
+        #4.0 part
         #reader = Reader(self._add_entry)
         #datasets = reader.read(fitfile)
+
         self._set_constraints()
         #print("loaded", datasets)
 
@@ -382,8 +355,8 @@ def get_data_weight(state):
         weight = np.ones_like(data)
     elif state.dI_didata:
         weight = dy_data
-    #elif state.dI_sqridata:
-    #    weight = np.sqrt(np.abs(data))
+    elif state.dI_sqrdata:
+        weight = np.sqrt(np.abs(data))
     elif state.dI_idata:
         weight = np.abs(data)
     return weight
