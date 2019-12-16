@@ -447,66 +447,73 @@ def convertToSVS(json_params):
     data = json_params['fit_data'][0]
     pagestate.data = data
     pagestate.is_2D = True if param_dict['2D_params'][0] == 'True' else False
+    pagestate.enable2D = True if param_dict['2D_params'][0] == 'True' else False
+    pagestate.name = param_dict['model_name']
+    pagestate.categorycombobox = param_dict['fitpage_category'][0]
+    pagestate.formfactorcombobox = param_dict['fitpage_model'][0]
+    pagestate.structurecombobox = param_dict['fitpage_structure'][0]
+    pagestate.data_id = param_dict['data_id'][0]
+    pagestate.data_name = param_dict['data_name'][0]
+    pagestate.is_data = param_dict['is_data'][0]
+    pagestate.magnetic_on = True if param_dict['magnetic_params'][0] == 'True' else False
+    pagestate.enable_disp = True if param_dict['polydisperse_params'][0] == 'True' else False
+    pagestate.qmax = param_dict['q_range_max'][0]
+    pagestate.qmin = param_dict['q_range_min'][0]
     pagestate.parameters = []
     index = 0
     print('param dict', json_params)
     for parameter in param_dict.keys():
-        if len(param_dict[parameter]) == 6:
+        if len(param_dict[parameter]) == 6 and (parameter != 'phi' or parameter != 'theta'):
+            # Skip if there are 2D parameters - what if user have custom variables called like this
+            # TODO: What is the lenght for parameter dict
+            pagestate.parameters.append([None] * 8)
+            pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
+            pagestate.parameters[index][1] = parameter
+            pagestate.parameters[index][2] = param_dict[parameter][1]
+            # TODO: Where is the source for this?
+            pagestate.parameters[index][3] = '+/-'
+            pagestate.parameters[index][4] = [''] * 2
+            pagestate.parameters[index][4][0] = False
+            if param_dict[parameter][2] != '':
+                pagestate.parameters[index][4][0] = True
+                pagestate.parameters[index][4][1] = param_dict[parameter][2]
+            pagestate.parameters[index][5] = [''] * 2
+            if param_dict[parameter][3] != '':
+                pagestate.parameters[index][5][0] = True
+                pagestate.parameters[index][5][1] = param_dict[parameter][3]
+            pagestate.parameters[index][6] = [''] * 2
+            if param_dict[parameter][4] != '':
+                pagestate.parameters[index][6][0] = True
+                pagestate.parameters[index][6][1] = param_dict[parameter][4]
+            # TODO: It seems that we are missing unit in json file
+            pagestate.parameters[index][7] = ''
             if pagestate.is_2D:
-                # TODO: Currently it is the same defintion as 1D casee
-                pagestate.parameters.append([None] * 8)
-                pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
-                pagestate.parameters[index][1] = parameter
-                pagestate.parameters[index][2] = param_dict[parameter][1]
+                pagestate.orientation_params.append([None] * 8)
+                pagestate.orientation_params[index][0] = True if param_dict[parameter][0] == 'True' else False
+                pagestate.orientation_params[index][1] = parameter
+                pagestate.orientation_params[index][2] = param_dict[parameter][1]
                 # TODO: Where is the source for this?
-                pagestate.parameters[index][3] = '+/-'
-                pagestate.parameters[index][4] = [''] * 2
-                pagestate.parameters[index][4][0] = False
+                pagestate.orientation_params[index][3] = '+/-'
+                pagestate.orientation_params[index][4] = [''] * 2
+                pagestate.orientation_params[index][4][0] = False
                 if param_dict[parameter][2] != '':
-                    pagestate.parameters[index][4][0] = True
-                    pagestate.parameters[index][4][1] = param_dict[parameter][2]
-                pagestate.parameters[index][5] = [''] * 2
+                    pagestate.orientation_params[index][4][0] = True
+                    pagestate.orientation_params[index][4][1] = param_dict[parameter][2]
+                pagestate.orientation_params[index][5] = [''] * 2
                 if param_dict[parameter][3] != '':
-                    pagestate.parameters[index][5][0] = True
+                    pagestate.orientation_params[index][5][0] = True
                     # TODO: Otherwise conversion needs to be provided?
-                    print('param_dict[parameter][3]', param_dict[parameter][3])
-                    pagestate.parameters[index][5][1] = '-inf' if param_dict[parameter][3] == '-360.0' else \
-                    param_dict[parameter][3]
-                pagestate.parameters[index][6] = [''] * 2
+                    pagestate.orientation_params[index][5][1] = '-inf' if param_dict[parameter][3] == '-360.0' else \
+                        param_dict[parameter][3]
+                pagestate.orientation_params[index][6] = [''] * 2
                 if param_dict[parameter][4] != '':
-                    pagestate.parameters[index][6][0] = True
+                    pagestate.orientation_params[index][6][0] = True
                     # TODO: Otherwise conversion needs to be provided?
-                    pagestate.parameters[index][6][1] = 'inf' if param_dict[parameter][4] == '360.0' else \
-                    param_dict[parameter][3]
+                    pagestate.orientation_params[index][6][1] = 'inf' if param_dict[parameter][4] == '360.0' else \
+                        param_dict[parameter][3]
                 # TODO: It seems that we are missing unit in json file
-                pagestate.parameters[index][7] = ''
-                index += 1
-            else:
-                #TODO: What is the lenght for parameter dict
-                pagestate.parameters.append([None] * 8)
-                pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
-                pagestate.parameters[index][1] = parameter
-                pagestate.parameters[index][2] = param_dict[parameter][1]
-                # TODO: Where is the source for this?
-                pagestate.parameters[index][3] = '+/-'
-                pagestate.parameters[index][4] = [''] * 2
-                pagestate.parameters[index][4][0] = False
-                if param_dict[parameter][2] != '':
-                    pagestate.parameters[index][4][0] = True
-                    pagestate.parameters[index][4][1] = param_dict[parameter][2]
-                pagestate.parameters[index][5] = [''] * 2
-                if param_dict[parameter][3] != '':
-                    pagestate.parameters[index][5][0] = True
-                    pagestate.parameters[index][5][1] = param_dict[parameter][3]
-                pagestate.parameters[index][6] = [''] * 2
-                if param_dict[parameter][4] != '':
-                    pagestate.parameters[index][6][0] = True
-                    pagestate.parameters[index][6][1] = param_dict[parameter][4]
-                #TODO: It seems that we are missing unit in json file
-                pagestate.parameters[index][7] = ''
-                index+=1
-
-
+                pagestate.orientation_params[index][7] = ''
+            index += 1
 
         # if param_dict['polydisperse_params'] and len(param_dict[parameter]) == 8:
         #     #TODO: Need to initialize disp_obj_dict
@@ -542,18 +549,6 @@ def convertToSVS(json_params):
         #     param_npts = parameter.replace('.npts', '.width')
         #     param_nsigmas = parameter.replace('.nsigmas', '.width')
 
-
-    pagestate.name = param_dict['model_name']
-    pagestate.categorycombobox = param_dict['fitpage_category'][0]
-    pagestate.formfactorcombobox = param_dict['fitpage_model'][0]
-    pagestate.structurecombobox = param_dict['fitpage_structure'][0]
-    pagestate.data_id = param_dict['data_id'][0]
-    pagestate.data_name = param_dict['data_name'][0]
-    pagestate.is_data = param_dict['is_data'][0]
-    pagestate.magnetic_on = param_dict['magnetic_params'][0]
-    pagestate.enable_disp = param_dict['polydisperse_params'][0]
-    pagestate.qmax = param_dict['q_range_max'][0]
-    pagestate.qmin = param_dict['q_range_min'][0]
     if param_dict['smearing'] == '1':
         pagestate.enable_smearer = True
         pagestate.slit_smearer = param_dict['smearing']
