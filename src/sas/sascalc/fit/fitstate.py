@@ -53,6 +53,11 @@ PARAMETER_FIELDS = [
     "fitted", "name", "value", "plusminus", "uncertainty",
     "lower", "upper", "units",
     ]
+
+ORIENTATION_PARAMETERS = [
+    'theta', 'phi', 'sld_M0', 'sld_mtheta', 'sld_phi',
+    'up_frac_i', 'up_frac_f', 'up_angle'
+]
 SasviewParameter = namedtuple("Parameter", PARAMETER_FIELDS)
 
 class JsonReader(object):
@@ -99,14 +104,11 @@ class JsonReader(object):
         pagestate.parameters = []
         index = 0
         for parameter in param_dict.keys():
-            if len(param_dict[parameter]) == 6 and (parameter != 'phi' or parameter != 'theta'):
-                #Skip if there are 2D parameters - what if user have custom variables called like this
-                # TODO: What is the lenght for parameter dict
+            if len(param_dict[parameter]) == 6 and parameter not in ORIENTATION_PARAMETERS:
                 pagestate.parameters.append([None] * 8)
                 pagestate.parameters[index][0] = True if param_dict[parameter][0] == 'True' else False
                 pagestate.parameters[index][1] = parameter
                 pagestate.parameters[index][2] = param_dict[parameter][1]
-                # TODO: Where is the source for this?
                 pagestate.parameters[index][3] = '+/-'
                 pagestate.parameters[index][4] = [''] * 2
                 pagestate.parameters[index][4][0] = False
@@ -128,7 +130,6 @@ class JsonReader(object):
                     pagestate.orientation_params[index][0] = True if param_dict[parameter][0] == 'True' else False
                     pagestate.orientation_params[index][1] = parameter
                     pagestate.orientation_params[index][2] = param_dict[parameter][1]
-                    # TODO: Where is the source for this?
                     pagestate.orientation_params[index][3] = '+/-'
                     pagestate.orientation_params[index][4] = [''] * 2
                     pagestate.orientation_params[index][4][0] = False
@@ -138,13 +139,11 @@ class JsonReader(object):
                     pagestate.orientation_params[index][5] = [''] * 2
                     if param_dict[parameter][3] != '':
                         pagestate.orientation_params[index][5][0] = True
-                        # TODO: Otherwise conversion needs to be provided?
                         pagestate.orientation_params[index][5][1] = '-inf' if param_dict[parameter][3] == '-360.0' else \
                             param_dict[parameter][3]
                     pagestate.orientation_params[index][6] = [''] * 2
                     if param_dict[parameter][4] != '':
                         pagestate.orientation_params[index][6][0] = True
-                        # TODO: Otherwise conversion needs to be provided?
                         pagestate.orientation_params[index][6][1] = 'inf' if param_dict[parameter][4] == '360.0' else \
                             param_dict[parameter][3]
                     # TODO: It seems that we are missing unit in json file
