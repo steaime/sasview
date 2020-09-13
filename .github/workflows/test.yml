@@ -60,7 +60,22 @@ jobs:
         choco install opencl-intel-cpu-runtime
         python -m pip install --only-binary=pyopencl --find-links http://www.silx.org/pub/wheelhouse/ --trusted-host www.silx.org pyopencl
 
-#    - uses: actions/upload-artifact@v2
+#    - name: run pyinstaller on macOS
+#      if: ${{ matrix.os == 'macos-latest' }}
+#      run: |
+#        pyinstaller -y --clean --onefile --windowed --debug sasview_qt5_osx.spec
+#
+#    - name: run pyinstaller on Linux
+#        if: ${{ matrix.os == 'ubuntu-latest' }}
+#        run: |
+#          pyinstaller -y --clean --onefile --windowed --debug sasview_qt5_centos.spec
+#
+#    - name: run pyinstaller on Windows
+#        if: ${{ matrix.os == 'windows-latest' }}
+#        run: |
+#          pyinstaller -y --clean --onefile --windowed --debug sasview_qt5_commercial.spec
+
+      #    - uses: actions/upload-artifact@v2
 #        with:
 #          name: name-of-artifact
 #          path: src/dist/windows
