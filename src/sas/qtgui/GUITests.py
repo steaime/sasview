@@ -4,6 +4,9 @@ import sys
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+# Generate the latest python from the UI files before running tests
+import convertUI
+
 """
 Unit tests for the QT GUI
 =========================
@@ -17,7 +20,7 @@ The tests can be run with ``python GUITests.py``, or
 To get more verbose console output (recommended), use ``python GUITests.py -v``
 """
 
-# Llist of all suite names. Every time a new suite is added, its name should
+# List of all suite names. Every time a new suite is added, its name should
 # also be added here
 ALL_SUITES = [
     'calculatorsSuite',
