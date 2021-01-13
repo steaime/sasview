@@ -45,7 +45,12 @@ class Plotter2DTest(unittest.TestCase):
                            xmin=-1.0, xmax=5.0,
                            ymin=-1.0, ymax=15.0,
                            zmin=-1.0, zmax=20.0)
-
+        self.data.xmin = -1.0
+        self.data.xmax = 5.0
+        self.data.ymin = -1.0
+        self.data.ymax = 15.0
+        self.data.zmin = -1.0
+        self.data.zmax = 20.0
         self.data.title="Test data"
         self.data.id = 1
         self.data.ndim = 1
@@ -97,7 +102,7 @@ class Plotter2DTest(unittest.TestCase):
         self.plotter.show()
 
         QtWidgets.QDialog.exec_ = MagicMock(return_value=QtWidgets.QDialog.Accepted)
-
+        self.plotter.vmax = 100.0
         # Just this one plot
         self.plotter.onColorMap()
 
@@ -106,7 +111,7 @@ class Plotter2DTest(unittest.TestCase):
 
         self.assertEqual(self.plotter.cmap, "jet")
         self.assertAlmostEqual(self.plotter.vmin, 0.1, 6)
-        self.assertAlmostEqual(self.plotter.vmax, 1e+20, 6)
+        self.assertAlmostEqual(self.plotter.vmax, 100, 6)
         self.plotter.figure.clf()
 
     def testOnToggleScale(self):

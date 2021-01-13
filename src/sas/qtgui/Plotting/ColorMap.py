@@ -32,9 +32,8 @@ class ColorMap(QtWidgets.QDialog, Ui_ColorMapUI):
 
         self.data = data
         self._cmap_orig = self._cmap = cmap if cmap is not None else DEFAULT_MAP
-        self.all_maps = [m for m in mpl.cm.datad]
-        self.maps = sorted(m for m in self.all_maps if not m.endswith("_r"))
-        self.rmaps = sorted(set(self.all_maps) - set(self.maps))
+        self.maps = [m for m in mpl.cm.datad]
+        self.rmaps = sorted([m + "_r" for m in self.maps])
 
         self.vmin = self.vmin_orig = vmin
         self.vmax = self.vmax_orig = vmax
@@ -169,13 +168,14 @@ class ColorMap(QtWidgets.QDialog, Ui_ColorMapUI):
             self.vmin = value
             self.txtMinAmplitude.setText(str(value))
             self.updateMap()
+
         def set_vmax(value):
             self.vmax = value
             self.txtMaxAmplitude.setText(str(value))
             self.updateMap()
 
         self.slider.lowValueChanged.connect(set_vmin)
-        self.slider.highValueChanged.connect(set_vmin)
+        self.slider.highValueChanged.connect(set_vmax)
 
     def updateMap(self):
         self._norm = mpl.colors.Normalize(vmin=self.vmin, vmax=self.vmax)
@@ -231,7 +231,7 @@ class ColorMap(QtWidgets.QDialog, Ui_ColorMapUI):
             if new_map not in maps:
                 new_map = maps[0]
         else:
-            new_map = current_map[:-2] # "_r" = last two chars
+            new_map = current_map[:-2]  # "_r" = last two chars
             maps = self.maps
             # Base map for the reversed map should ALWAYS exist,
             # but let's be paranoid here

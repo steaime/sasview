@@ -1,6 +1,5 @@
 import sys
 import unittest
-import numpy
 
 from PyQt5 import QtGui, QtWidgets
 from unittest.mock import MagicMock
@@ -11,7 +10,6 @@ import path_prepare
 
 from sas.qtgui.Plotting.PlotterData import Data2D
 import sas.qtgui.Plotting.Plotter2D as Plotter2D
-from UnitTesting.TestUtils import WarningTestNotImplemented
 from UnitTesting.TestUtils import QtSignalSpy
 
 # Local
@@ -20,24 +18,33 @@ from sas.qtgui.Plotting.ColorMap import ColorMap
 if not QtWidgets.QApplication.instance():
     app = QtWidgets.QApplication(sys.argv)
 
+
 class ColorMapTest(unittest.TestCase):
     '''Test the ColorMap'''
     def setUp(self):
         '''Create the ColorMap'''
         self.plotter = Plotter2D.Plotter2D(None, quickplot=True)
 
-        self.data = Data2D(image=[0.1]*4,
+        self.data = Data2D(image=[0.1] * 4,
                            qx_data=[1.0, 2.0, 3.0, 4.0],
                            qy_data=[10.0, 11.0, 12.0, 13.0],
                            dqx_data=[0.1, 0.2, 0.3, 0.4],
                            dqy_data=[0.1, 0.2, 0.3, 0.4],
-                           q_data=[1,2,3,4],
+                           q_data=[1, 2, 3, 4],
                            xmin=-1.0, xmax=5.0,
                            ymin=-1.0, ymax=15.0,
                            zmin=-1.0, zmax=20.0)
 
-        self.data.title="Test data"
+        self.data.title = "Test data"
         self.data.id = 1
+
+        self.data.xmin = -1.0
+        self.data.xmax = 5.0
+        self.data.ymin = -1.0
+        self.data.ymax = 15.0
+        self.data.zmin = -1.0
+        self.data.zmax = 20.0
+        self.data.vmax = 100.0
         self.widget = ColorMap(parent=self.plotter, data=self.data)
 
     def tearDown(self):
@@ -50,7 +57,6 @@ class ColorMapTest(unittest.TestCase):
         self.assertIsInstance(self.widget, QtWidgets.QDialog)
 
         self.assertEqual(self.widget._cmap_orig, "jet")
-        self.assertEqual(len(self.widget.all_maps), 150)
         self.assertEqual(len(self.widget.maps), 75)
         self.assertEqual(len(self.widget.rmaps), 75)
 
@@ -60,7 +66,7 @@ class ColorMapTest(unittest.TestCase):
         self.assertEqual(self.widget.lblStopRadius.text(), "-1")
         self.assertFalse(self.widget.chkReverse.isChecked())
         self.assertEqual(self.widget.cbColorMap.count(), 75)
-        self.assertEqual(self.widget.cbColorMap.currentIndex(), 60)
+        self.assertEqual(self.widget.cbColorMap.currentIndex(), 52)
 
         # validators
         self.assertIsInstance(self.widget.txtMinAmplitude.validator(), QtGui.QDoubleValidator)
@@ -101,7 +107,7 @@ class ColorMapTest(unittest.TestCase):
         # Assure the widget is still up and the signal was sent.
         self.assertTrue(self.widget.isVisible())
         self.assertEqual(spy_apply.count(), 1)
-        self.assertIn('PuRd_r', spy_apply.called()[0]['args'][1])
+        self.assertIn('RdYlBu_r', spy_apply.called()[0]['args'][1])
 
     def testInitMapCombobox(self):
         '''Test the combo box initializer'''
@@ -110,7 +116,7 @@ class ColorMapTest(unittest.TestCase):
         self.widget.initMapCombobox()
 
         # Check the combobox
-        self.assertEqual(self.widget.cbColorMap.currentIndex(), 55)
+        self.assertEqual(self.widget.cbColorMap.currentIndex(), 47)
         self.assertFalse(self.widget.chkReverse.isChecked())
 
         # Set a reversed value
@@ -139,7 +145,7 @@ class ColorMapTest(unittest.TestCase):
         # Emit new high value
         self.widget.slider.highValueChanged.emit(45)
         # Assure the widget received changes
-        self.assertEqual(self.widget.txtMinAmplitude.text(), "45")
+        self.assertEqual(self.widget.txtMaxAmplitude.text(), "45")
 
     def testOnMapIndexChange(self):
         '''Test the response to the combo box index change'''

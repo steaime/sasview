@@ -103,6 +103,7 @@ from Perspectives.Corfunc.UnitTesting import CorfuncTest
 def plottingSuite():
     suites = (
         # Plotting
+        unittest.makeSuite(PlotterTest.PlotterTest,                   'test'),
         unittest.makeSuite(Plotter2DTest.Plotter2DTest,               'test'),
         unittest.makeSuite(PlotHelperTest.PlotHelperTest,             'test'),
         unittest.makeSuite(AddTextTest.AddTextTest,                   'test'),
@@ -115,9 +116,8 @@ def plottingSuite():
         unittest.makeSuite(ColorMapTest.ColorMapTest,                 'test'),
         unittest.makeSuite(BoxSumTest.BoxSumTest,                     'test'),
         unittest.makeSuite(SlicerModelTest.SlicerModelTest,           'test'),
-        unittest.makeSuite(SlicerParametersTest.SlicerParametersTest, 'test'),
+        unittest.makeSuite(SlicerParametersTest.SlicerParametersTest, 'test'), # currently failing, fixes in PR#1721
         unittest.makeSuite(PlotterBaseTest.PlotterBaseTest,           'test'),
-        unittest.makeSuite(PlotterTest.PlotterTest,                   'test'),
         )
     return unittest.TestSuite(suites)
 
