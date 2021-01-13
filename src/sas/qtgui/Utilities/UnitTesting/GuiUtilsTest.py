@@ -563,14 +563,15 @@ class GuiUtilsTest(unittest.TestCase):
 
     def testToDouble(self):
         '''test homemade string-> double converter'''
-        #good values
+        # good values
         value = "1"
         self.assertEqual(toDouble(value), 1.0)
         value = "1.2"
         # has to be AlmostEqual due to numerical rounding
         self.assertAlmostEqual(toDouble(value), 1.2, 6)
         value = "2,1"
-        self.assertAlmostEqual(toDouble(value), 2.1, 6)
+        with self.assertRaises(TypeError):
+            toDouble(value)
 
         # bad values
         value = None

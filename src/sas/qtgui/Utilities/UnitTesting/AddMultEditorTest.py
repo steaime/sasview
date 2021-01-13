@@ -88,11 +88,7 @@ class AddMultEditorTest(unittest.TestCase):
         self.assertIsNone(self.widget.plugin_filename)
 
         # default content of displayed equation (to create the new model)
-        self.assertEqual(self.widget.lblEquation.text(),
-                         "<html><head/><body><p>Plugin_model = "
-                         "scale_factor * (model_1 + model_2) + background"
-                         "</p></body></html>")
-
+        self.assertIn("scale_factor * (model_1 + model_2) + background", self.widget.lblEquation.text())
         # Tooltips
         self.assertEqual(self.widget.cbOperator.toolTip(),
                          "Add: +\nMultiply: *")
