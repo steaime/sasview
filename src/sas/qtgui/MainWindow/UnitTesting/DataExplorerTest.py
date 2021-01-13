@@ -1006,7 +1006,7 @@ class DataExplorerTest(unittest.TestCase):
 
         # redoing plots from the same tab
         # data -> must be shown
-        self.assertFalse(self.form.isPlotShown(data1))
+        self.assertTrue(self.form.isPlotShown(data1))
 
         # model and residuals are already shown
         self.assertTrue(self.form.isPlotShown(data2))
